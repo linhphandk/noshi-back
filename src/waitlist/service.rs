@@ -19,18 +19,14 @@ impl<R: WaitlistRepository> WaitlistService<R> {
             return Err(AppError::BadRequest("Invalid email".to_string()));
         }
 
-        if let Some(existing) = self.repo.find_by_email(&email).await? {
-            return Ok(WaitlistResponse {
-                position: existing.position,
-                message: "You're already on the waitlist".to_string(),
-            });
+        if self.repo.find_by_email(&email).await?.is_some() {
+            return Err(AppError::Conflict("Email already on waitlist".to_string()));
         }
 
-        let entry = self.repo.create(NewWaitlistEntry { email }).await?;
+        self.repo.create(NewWaitlistEntry { email }).await?;
 
         Ok(WaitlistResponse {
-            position: entry.position,
-            message: format!("You're #{} on the waitlist", entry.position),
+            message: "You're on the waitlist".to_string(),
         })
     }
 }

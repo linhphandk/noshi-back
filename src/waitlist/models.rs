@@ -8,9 +8,6 @@ use uuid::Uuid;
 pub struct WaitlistEntry {
     pub id: Uuid,
     pub email: String,
-    pub position: i32,
-    pub profile_complete_at: Option<NaiveDateTime>,
-    pub is_featured: bool,
     pub signed_up_at: NaiveDateTime,
 }
 
@@ -30,6 +27,5 @@ impl std::fmt::Debug for NewWaitlistEntry {
 
 #[derive(Serialize)]
 pub struct WaitlistResponse {
-    pub position: i32,
     pub message: String,
 }
