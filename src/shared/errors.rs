@@ -17,6 +17,8 @@ pub enum AppError {
     Unauthorized(String),
     #[error("Forbidden: {0}")]
     Forbidden(String),
+    #[error("Conflict: {0}")]
+    Conflict(String),
     #[error("Internal error")]
     Internal,
     #[error("Not implemented")]
@@ -46,6 +48,10 @@ impl IntoResponse for AppError {
             AppError::Forbidden(msg) => {
                 warn!(status = ?StatusCode::FORBIDDEN, "Forbidden");
                 (StatusCode::FORBIDDEN, msg.clone())
+            }
+            AppError::Conflict(msg) => {
+                warn!(status = ?StatusCode::CONFLICT, "Conflict");
+                (StatusCode::CONFLICT, msg.clone())
             }
             AppError::Internal => {
                 error!("Internal server error");
