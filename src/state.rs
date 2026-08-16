@@ -5,6 +5,8 @@ use crate::auth::repository::{
     DieselPasswordResetRepository, DieselSessionRepository, DieselUserRepository,
 };
 use crate::auth::service::AuthService;
+use crate::profile::repository::{DieselManualPlatformRepository, DieselProfileRepository};
+use crate::profile::service::ProfileService;
 use crate::shared::db::DbPool;
 use crate::shared::errors::AppResult;
 use crate::shared::types::AuthenticatedUser;
@@ -19,10 +21,14 @@ pub type ConcreteAuthService = AuthService<
     SmtpEmailProvider,
 >;
 
+pub type ConcreteProfileService =
+    ProfileService<DieselProfileRepository, DieselManualPlatformRepository>;
+
 #[derive(Clone)]
 pub struct AppState {
     pub waitlist_service: WaitlistService<DieselWaitlistRepository>,
     pub auth_service: ConcreteAuthService,
+    pub profile_service: ConcreteProfileService,
 }
 
 impl AppState {
@@ -74,6 +80,10 @@ impl AppState {
         Self {
             waitlist_service,
             auth_service,
+            profile_service: ProfileService::new(
+                DieselProfileRepository::new(pool.clone()),
+                DieselManualPlatformRepository::new(pool),
+            ),
         }
     }
 }
