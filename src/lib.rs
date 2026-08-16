@@ -1,4 +1,5 @@
 pub mod auth;
+pub mod profile;
 pub mod router;
 pub mod schema;
 pub mod shared;
