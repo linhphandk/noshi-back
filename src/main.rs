@@ -20,7 +20,16 @@ async fn main() {
     let pool = establish_pool(&config.database_url, config.database_pool_size);
     run_migrations(&pool);
 
-    let state = AppState::new(pool);
+    let frontend_url = config
+        .frontend_url
+        .clone()
+        .unwrap_or_else(|| "http://localhost:5173".to_string());
+    let state = AppState::new(
+        pool,
+        config.jwt_secret.clone(),
+        config.jwt_expiry_minutes,
+        frontend_url,
+    );
     let app = create_router(state);
 
     let cors = CorsLayer::new()
