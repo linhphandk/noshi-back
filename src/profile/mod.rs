@@ -17,11 +17,11 @@ pub fn profile_router(state: &AppState) -> axum::Router<AppState> {
         .route("/profile/platforms", get(controller::get_manual_platforms))
         .route("/profile/platforms", post(controller::add_manual_platform))
         .route(
-            "/profile/platforms/:platform_id",
+            "/profile/platforms/{platform_id}",
             put(controller::update_manual_platform),
         )
         .route(
-            "/profile/platforms/:platform_id",
+            "/profile/platforms/{platform_id}",
             delete(controller::delete_manual_platform),
         )
         .layer(axum::middleware::from_fn_with_state(
