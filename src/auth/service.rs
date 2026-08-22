@@ -107,6 +107,7 @@ impl<
         let tokens = crate::auth::models::Tokens {
             access_token: tokens.access_token,
             expires_in: tokens.expires_in,
+            refresh_token: Some(refresh_token),
         };
 
         info!(user_id = %user.id, "user registered");
@@ -143,6 +144,7 @@ impl<
         let tokens = crate::auth::models::Tokens {
             access_token: tokens.access_token,
             expires_in: tokens.expires_in,
+            refresh_token: Some(refresh_token),
         };
 
         info!(user_id = %user.id, "user logged in");
@@ -197,6 +199,7 @@ impl<
         let tokens = crate::auth::models::Tokens {
             access_token: new_access_token,
             expires_in: self.auth_provider.token_expiry_seconds(),
+            refresh_token: Some(new_refresh_token),
         };
 
         info!(user_id = %user.id, "token refreshed");

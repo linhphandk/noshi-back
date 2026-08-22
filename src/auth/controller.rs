@@ -18,6 +18,7 @@ pub struct AuthResponse {
     pub user: UserResponse,
     pub access_token: String,
     pub expires_in: u64,
+    pub refresh_token: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -44,8 +45,9 @@ pub async fn register(
         },
         access_token: tokens.access_token,
         expires_in: tokens.expires_in,
+        refresh_token: tokens.refresh_token,
     };
-    Ok((StatusCode::OK, Json(response)))
+    Ok((StatusCode::CREATED, Json(response)))
 }
 
 #[instrument(skip(state, req), fields(email = %req.email))]
@@ -62,6 +64,7 @@ pub async fn login(
         },
         access_token: tokens.access_token,
         expires_in: tokens.expires_in,
+        refresh_token: tokens.refresh_token,
     };
     Ok((StatusCode::OK, Json(response)))
 }
@@ -89,6 +92,7 @@ pub async fn refresh(
         },
         access_token: tokens.access_token,
         expires_in: tokens.expires_in,
+        refresh_token: tokens.refresh_token,
     };
     Ok((StatusCode::OK, Json(response)))
 }
