@@ -1,24 +1,55 @@
 use axum::extract::{Extension, State};
-use axum::http::StatusCode;
+use axum::http::header::SET_COOKIE;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde::Serialize;
 use tracing::instrument;
 use utoipa::ToSchema;
 
 use crate::auth::models::{
-    ForgotPasswordRequest, LoginRequest, LogoutRequest, RefreshRequest, RegisterRequest,
-    ResetPasswordRequest,
+    ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
 };
 use crate::shared::errors::AppResult;
 use crate::shared::types::AuthenticatedUser;
 use crate::state::AppState;
+
+const REFRESH_COOKIE_NAME: &str = "refresh_token";
+const REFRESH_COOKIE_MAX_AGE: &str = "604800"; // 7 days
+
+fn refresh_cookie(value: &str) -> String {
+    format!(
+        "{name}={value}; HttpOnly; SameSite=Strict; Path=/auth; Max-Age={max_age}",
+        name = REFRESH_COOKIE_NAME,
+        value = value,
+        max_age = REFRESH_COOKIE_MAX_AGE,
+    )
+}
+
+fn clear_refresh_cookie() -> String {
+    format!(
+        "{name}=; HttpOnly; SameSite=Strict; Path=/auth; Max-Age=0",
+        name = REFRESH_COOKIE_NAME,
+    )
+}
+
+fn extract_refresh_token(headers: &HeaderMap) -> Option<String> {
+    let cookie_header = headers.get("cookie")?.to_str().ok()?;
+    for part in cookie_header.split(';') {
+        let mut kv = part.trim().splitn(2, '=');
+        let key = kv.next()?.trim();
+        let val = kv.next()?.trim();
+        if key == REFRESH_COOKIE_NAME {
+            return Some(val.to_string());
+        }
+    }
+    None
+}
 
 #[derive(Serialize, ToSchema)]
 pub struct AuthResponse {
     pub user: UserResponse,
     pub access_token: String,
     pub expires_in: u64,
-    pub refresh_token: Option<String>,
 }
 
 #[derive(Serialize, ToSchema)]
@@ -31,8 +62,9 @@ pub struct UserResponse {
 #[instrument(skip(state, req), fields(email = %req.email))]
 pub async fn register(
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(req): Json<RegisterRequest>,
-) -> AppResult<(StatusCode, Json<AuthResponse>)> {
+) -> AppResult<(StatusCode, HeaderMap, Json<AuthResponse>)> {
     let (user, tokens) = state
         .auth_service
         .register(req.email, req.name, req.password)
@@ -45,16 +77,19 @@ pub async fn register(
         },
         access_token: tokens.access_token,
         expires_in: tokens.expires_in,
-        refresh_token: tokens.refresh_token,
     };
-    Ok((StatusCode::CREATED, Json(response)))
+    let mut resp_headers = HeaderMap::new();
+    if let Some(rt) = &tokens.refresh_token {
+        resp_headers.insert(SET_COOKIE, refresh_cookie(rt).parse().unwrap());
+    }
+    Ok((StatusCode::CREATED, resp_headers, Json(response)))
 }
 
 #[instrument(skip(state, req), fields(email = %req.email))]
 pub async fn login(
     State(state): State<AppState>,
     Json(req): Json<LoginRequest>,
-) -> AppResult<(StatusCode, Json<AuthResponse>)> {
+) -> AppResult<(StatusCode, HeaderMap, Json<AuthResponse>)> {
     let (user, tokens) = state.auth_service.login(req.email, req.password).await?;
     let response = AuthResponse {
         user: UserResponse {
@@ -64,26 +99,36 @@ pub async fn login(
         },
         access_token: tokens.access_token,
         expires_in: tokens.expires_in,
-        refresh_token: tokens.refresh_token,
     };
-    Ok((StatusCode::OK, Json(response)))
+    let mut resp_headers = HeaderMap::new();
+    if let Some(rt) = &tokens.refresh_token {
+        resp_headers.insert(SET_COOKIE, refresh_cookie(rt).parse().unwrap());
+    }
+    Ok((StatusCode::OK, resp_headers, Json(response)))
 }
 
-#[instrument(skip(state, req))]
+#[instrument(skip(state, headers))]
 pub async fn logout(
     State(state): State<AppState>,
-    Json(req): Json<LogoutRequest>,
-) -> AppResult<StatusCode> {
-    state.auth_service.logout(req.refresh_token).await?;
-    Ok(StatusCode::OK)
+    headers: HeaderMap,
+) -> AppResult<(StatusCode, HeaderMap)> {
+    if let Some(rt) = extract_refresh_token(&headers) {
+        let _ = state.auth_service.logout(rt).await;
+    }
+    let mut resp_headers = HeaderMap::new();
+    resp_headers.insert(SET_COOKIE, clear_refresh_cookie().parse().unwrap());
+    Ok((StatusCode::OK, resp_headers))
 }
 
-#[instrument(skip(state, req))]
+#[instrument(skip(state, headers))]
 pub async fn refresh(
     State(state): State<AppState>,
-    Json(req): Json<RefreshRequest>,
-) -> AppResult<(StatusCode, Json<AuthResponse>)> {
-    let (user, tokens) = state.auth_service.refresh_token(req.refresh_token).await?;
+    headers: HeaderMap,
+) -> AppResult<(StatusCode, HeaderMap, Json<AuthResponse>)> {
+    let rt = extract_refresh_token(&headers).ok_or_else(|| {
+        crate::shared::errors::AppError::Unauthorized("Missing refresh token cookie".to_string())
+    })?;
+    let (user, tokens) = state.auth_service.refresh_token(rt).await?;
     let response = AuthResponse {
         user: UserResponse {
             id: user.id.to_string(),
@@ -92,9 +137,12 @@ pub async fn refresh(
         },
         access_token: tokens.access_token,
         expires_in: tokens.expires_in,
-        refresh_token: tokens.refresh_token,
     };
-    Ok((StatusCode::OK, Json(response)))
+    let mut resp_headers = HeaderMap::new();
+    if let Some(rt) = &tokens.refresh_token {
+        resp_headers.insert(SET_COOKIE, refresh_cookie(rt).parse().unwrap());
+    }
+    Ok((StatusCode::OK, resp_headers, Json(response)))
 }
 
 #[instrument(skip(state))]
