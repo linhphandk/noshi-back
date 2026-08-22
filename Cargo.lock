@@ -2300,6 +2300,7 @@ dependencies = [
  "jsonwebtoken",
  "lettre",
  "mockall",
+ "r2d2",
  "reqwest",
  "serde",
  "serde_json",

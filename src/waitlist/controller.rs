@@ -19,7 +19,7 @@ impl std::fmt::Debug for JoinWaitlistRequest {
     }
 }
 
-#[instrument(skip(state))]
+#[instrument(skip(state, req))]
 pub async fn join_waitlist(
     State(state): State<AppState>,
     Json(req): Json<JoinWaitlistRequest>,

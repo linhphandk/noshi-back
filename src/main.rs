@@ -5,6 +5,9 @@ use noshi_back::shared::db::{establish_pool, run_migrations};
 use noshi_back::state::AppState;
 use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::trace::TraceLayer;
+use tracing::info;
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() {
@@ -12,7 +15,10 @@ async fn main() {
     tracing_subscriber::fmt()
         .compact()
         .with_target(false)
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env()
+                .unwrap_or_else(|_| "noshi_back=debug,tower_http=debug,info".into()),
+        )
         .init();
 
     let config = Config::from_env().expect("Failed to load config");
@@ -44,13 +50,40 @@ async fn main() {
         ])
         .allow_headers(Any);
 
-    let app = app.layer(cors);
+    let app = app.layer(cors).layer(
+        TraceLayer::new_for_http()
+            .make_span_with(|req: &axum::http::Request<_>| {
+                let request_id = Uuid::new_v4().to_string();
+                let method = req.method().clone();
+                let uri = req.uri().clone();
+                tracing::debug_span!(
+                    "request",
+                    method = %method,
+                    uri = %uri,
+                    request_id = %request_id,
+                )
+            })
+            .on_request(|_req: &axum::http::Request<_>, _span: &tracing::Span| {
+                tracing::debug!("incoming request");
+            })
+            .on_response(
+                |response: &axum::http::Response<_>,
+                 latency: std::time::Duration,
+                 _span: &tracing::Span| {
+                    tracing::debug!(
+                        status = %response.status(),
+                        latency_ms = latency.as_millis() as u64,
+                        "response sent"
+                    );
+                },
+            ),
+    );
 
     let addr = SocketAddr::from((
         config.server_host.parse::<std::net::IpAddr>().unwrap(),
         config.server_port,
     ));
-    tracing::info!("Server starting on {}", addr);
+    info!("Server starting on {}", addr);
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
 }
