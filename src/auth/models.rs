@@ -82,16 +82,6 @@ pub struct LoginRequest {
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
-pub struct LogoutRequest {
-    pub refresh_token: String,
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct RefreshRequest {
-    pub refresh_token: String,
-}
-
-#[derive(Debug, Deserialize, ToSchema)]
 pub struct ForgotPasswordRequest {
     pub email: String,
 }
