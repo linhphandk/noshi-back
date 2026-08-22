@@ -1,4 +1,4 @@
-use tracing::{info, instrument};
+use tracing::{debug, info, instrument};
 use uuid::Uuid;
 
 use crate::profile::models::{
@@ -22,18 +22,21 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         }
     }
 
-    #[instrument(skip(self, user_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id))]
     pub async fn create_profile(
         &self,
         user_id: Uuid,
         req: CreateProfileRequest,
     ) -> AppResult<crate::profile::models::Profile> {
+        debug!("checking for existing profile");
         if self.profile_repo.find_by_user_id(user_id).await?.is_some() {
             return Err(AppError::Conflict("Profile already exists".to_string()));
         }
+        debug!("checking slug availability");
         if self.profile_repo.find_by_slug(&req.slug).await?.is_some() {
             return Err(AppError::Conflict("Slug already taken".to_string()));
         }
+        debug!("inserting profile");
         let profile = self
             .profile_repo
             .create(NewProfile {
@@ -48,28 +51,32 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         Ok(profile)
     }
 
-    #[instrument(skip(self, user_id))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn get_profile(&self, user_id: Uuid) -> AppResult<crate::profile::models::Profile> {
+        debug!("fetching profile");
         self.profile_repo
             .find_by_user_id(user_id)
             .await?
             .ok_or_else(|| AppError::NotFound("Profile not found".to_string()))
     }
 
-    #[instrument(skip(self, user_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id))]
     pub async fn update_profile(
         &self,
         user_id: Uuid,
         req: UpdateProfileRequest,
     ) -> AppResult<crate::profile::models::Profile> {
+        debug!("fetching current profile");
         let profile = self.get_profile(user_id).await?;
         if let Some(ref slug) = req.slug {
+            debug!("checking slug uniqueness");
             if let Some(existing) = self.profile_repo.find_by_slug(slug).await? {
                 if existing.id != profile.id {
                     return Err(AppError::Conflict("Slug already taken".to_string()));
                 }
             }
         }
+        debug!("updating profile");
         self.profile_repo
             .update(
                 profile.id,
@@ -84,19 +91,23 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .await
     }
 
-    #[instrument(skip(self, user_id))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn delete_profile(&self, user_id: Uuid) -> AppResult<()> {
+        debug!("fetching profile to delete");
         let profile = self.get_profile(user_id).await?;
+        debug!("deleting profile");
         self.profile_repo.delete(profile.id).await
     }
 
-    #[instrument(skip(self, user_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id))]
     pub async fn add_manual_platform(
         &self,
         user_id: Uuid,
         req: CreateManualPlatformRequest,
     ) -> AppResult<crate::profile::models::ManualPlatform> {
+        debug!("verifying profile exists");
         let _profile = self.get_profile(user_id).await?;
+        debug!("inserting platform");
         self.manual_platform_repo
             .create(NewManualPlatform {
                 user_id,
@@ -107,21 +118,23 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .await
     }
 
-    #[instrument(skip(self, user_id))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn get_manual_platforms(
         &self,
         user_id: Uuid,
     ) -> AppResult<Vec<crate::profile::models::ManualPlatform>> {
+        debug!("fetching platforms");
         self.manual_platform_repo.find_by_user_id(user_id).await
     }
 
-    #[instrument(skip(self, user_id, platform_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id, platform_id = %platform_id))]
     pub async fn update_manual_platform(
         &self,
         user_id: Uuid,
         platform_id: Uuid,
         req: UpdateManualPlatformRequest,
     ) -> AppResult<crate::profile::models::ManualPlatform> {
+        debug!("fetching platform");
         let platform = self
             .manual_platform_repo
             .find_by_id(platform_id)
@@ -130,6 +143,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         if platform.user_id != user_id {
             return Err(AppError::Forbidden("Not your platform".to_string()));
         }
+        debug!("updating platform");
         self.manual_platform_repo
             .update(
                 platform_id,
@@ -142,8 +156,9 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .await
     }
 
-    #[instrument(skip(self, user_id, platform_id))]
+    #[instrument(skip(self), fields(user_id = %user_id, platform_id = %platform_id))]
     pub async fn delete_manual_platform(&self, user_id: Uuid, platform_id: Uuid) -> AppResult<()> {
+        debug!("fetching platform");
         let platform = self
             .manual_platform_repo
             .find_by_id(platform_id)
@@ -152,6 +167,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         if platform.user_id != user_id {
             return Err(AppError::Forbidden("Not your platform".to_string()));
         }
+        debug!("deleting platform");
         self.manual_platform_repo.delete(platform_id).await
     }
 }

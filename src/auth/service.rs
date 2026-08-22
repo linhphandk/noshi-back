@@ -1,6 +1,6 @@
 use chrono::{Duration, Utc};
 use sha2::{Digest, Sha256};
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 use uuid::Uuid;
 
 use crate::auth::email::EmailProvider;
@@ -63,6 +63,7 @@ impl<
         name: String,
         password: String,
     ) -> AppResult<(crate::auth::models::User, crate::auth::models::Tokens)> {
+        debug!("validating input");
         if email.is_empty() {
             return Err(AppError::BadRequest("Email cannot be empty".to_string()));
         }
@@ -75,10 +76,12 @@ impl<
             ));
         }
 
+        debug!("checking for existing user");
         if self.user_repo.find_by_email(&email).await?.is_some() {
             return Err(AppError::Conflict("Email already registered".to_string()));
         }
 
+        debug!("calling auth provider");
         let (user_info, tokens) = self
             .auth_provider
             .register(&email, &name, &password)
@@ -92,6 +95,7 @@ impl<
             password_hash: user_info.password_hash,
         };
 
+        debug!("persisting user");
         let user = self.user_repo.create(new_user).await?;
 
         let refresh_token = Uuid::now_v7().to_string();
@@ -100,6 +104,7 @@ impl<
             .ok_or(AppError::Internal)?
             .naive_utc();
 
+        debug!("creating session");
         self.session_repo
             .create(user.id, refresh_token.clone(), expires_at)
             .await?;
@@ -120,12 +125,14 @@ impl<
         email: String,
         password: String,
     ) -> AppResult<(crate::auth::models::User, crate::auth::models::Tokens)> {
+        debug!("looking up user");
         let user = self.user_repo.find_by_email(&email).await?;
         let user = user.ok_or_else(|| {
             warn!(email = %email, "login failed: user not found");
             AppError::BadRequest("Invalid email or password".to_string())
         })?;
 
+        debug!("validating credentials");
         let (tokens, _user_info) = self
             .auth_provider
             .login(&email, &password, &user.password_hash)
@@ -137,6 +144,7 @@ impl<
             .ok_or(AppError::Internal)?
             .naive_utc();
 
+        debug!("creating session");
         self.session_repo
             .create(user.id, refresh_token.clone(), expires_at)
             .await?;
@@ -151,16 +159,18 @@ impl<
         Ok((user, tokens))
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, refresh_token))]
     pub async fn logout(&self, refresh_token: String) -> AppResult<()> {
+        debug!("revoking session");
         self.session_repo.revoke(&refresh_token).await
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, refresh_token))]
     pub async fn refresh_token(
         &self,
         refresh_token: String,
     ) -> AppResult<(crate::auth::models::User, crate::auth::models::Tokens)> {
+        debug!("looking up session");
         let session = self.session_repo.find_by_token(&refresh_token).await?;
         let session = session.ok_or_else(|| {
             warn!("refresh_token: invalid token");
@@ -168,22 +178,26 @@ impl<
         })?;
 
         if session.expires_at < Utc::now().naive_utc() {
+            debug!("token expired, revoking");
             self.session_repo.revoke(&refresh_token).await?;
             warn!("refresh_token: expired token revoked");
             return Err(AppError::BadRequest("Refresh token expired".to_string()));
         }
 
+        debug!("loading user");
         let user = self.user_repo.find_by_id(session.user_id).await?;
         let user = user.ok_or_else(|| {
             error!(user_id = %session.user_id, "refresh_token: user not found");
             AppError::Internal
         })?;
 
+        debug!("generating new access token");
         let new_access_token = self
             .auth_provider
             .generate_access_token(&user.id.to_string(), &user.email)
             .await?;
 
+        debug!("rotating refresh token");
         self.session_repo.revoke(&refresh_token).await?;
 
         let new_refresh_token = Uuid::now_v7().to_string();
@@ -206,12 +220,14 @@ impl<
         Ok((user, tokens))
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, access_token))]
     pub async fn get_current_user(
         &self,
         access_token: String,
     ) -> AppResult<crate::auth::models::User> {
+        debug!("introspecting token");
         let user_info = self.auth_provider.introspect_token(&access_token).await?;
+        debug!("looking up user by email");
         let user = self.user_repo.find_by_email(&user_info.email).await?;
         user.ok_or_else(|| {
             warn!(email = %user_info.email, "get_current_user: user not found");
@@ -221,6 +237,7 @@ impl<
 
     #[instrument(skip(self), fields(email = %email))]
     pub async fn forgot_password(&self, email: String) -> AppResult<()> {
+        debug!("looking up user");
         let user = match self.user_repo.find_by_email(&email).await {
             Ok(Some(u)) => u,
             Ok(None) => {
@@ -243,6 +260,7 @@ impl<
             token
         );
 
+        debug!("storing password reset token");
         self.password_reset_repo
             .create(NewPasswordReset {
                 user_id: user.id,
@@ -251,6 +269,7 @@ impl<
             })
             .await?;
 
+        debug!("sending reset email");
         if let Err(e) = self
             .email_provider
             .send_password_reset(&user.email, &reset_url)
@@ -263,14 +282,16 @@ impl<
         Ok(())
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, token, new_password))]
     pub async fn reset_password(&self, token: String, new_password: String) -> AppResult<()> {
+        debug!("validating password length");
         if new_password.len() < 8 {
             return Err(AppError::BadRequest(
                 "Password must be at least 8 characters".to_string(),
             ));
         }
 
+        debug!("looking up reset token");
         let token_hash = format!("{:x}", Sha256::digest(token.as_bytes()));
         let reset = self
             .password_reset_repo
@@ -287,6 +308,7 @@ impl<
         }
 
         if reset.used_at.is_some() {
+            debug!("token reuse detected, revoking all sessions");
             self.session_repo.revoke_all_for_user(reset.user_id).await?;
             warn!(
                 user_id = %reset.user_id,
@@ -295,15 +317,18 @@ impl<
             return Err(AppError::BadRequest("Token already used".to_string()));
         }
 
+        debug!("hashing new password");
         let password_hash = bcrypt::hash(&new_password, bcrypt::DEFAULT_COST).map_err(|e| {
             error!("reset_password: bcrypt error: {:?}", e);
             AppError::Internal
         })?;
 
+        debug!("updating password hash");
         self.user_repo
             .update_password_hash(reset.user_id, password_hash)
             .await?;
 
+        debug!("marking token used and revoking sessions");
         self.password_reset_repo.mark_used(reset.id).await?;
         self.session_repo.revoke_all_for_user(reset.user_id).await?;
 
