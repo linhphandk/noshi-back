@@ -4,7 +4,7 @@ use axum::Json;
 use tracing::instrument;
 
 use crate::profile::models::{
-    CreateManualPlatformRequest, CreateProfileRequest, ManualPlatform, Profile,
+    CreateManualPlatformRequest, CreateProfileRequest, ManualPlatform, Profile, PublicProfile,
     UpdateManualPlatformRequest, UpdateProfileRequest,
 };
 use crate::shared::errors::{AppError, AppResult};
@@ -15,6 +15,27 @@ fn parse_user_id(user: &AuthenticatedUser) -> AppResult<uuid::Uuid> {
     user.id
         .parse()
         .map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))
+}
+
+#[utoipa::path(
+    get,
+    path = "/profile/public/{slug}",
+    params(
+        ("slug" = String, Path, description = "Profile slug"),
+    ),
+    responses(
+        (status = 200, description = "Public profile", body = PublicProfile),
+        (status = 404, description = "Profile not found or not published"),
+    ),
+    tag = "profile"
+)]
+#[instrument(skip(state))]
+pub async fn get_public_profile(
+    State(state): State<AppState>,
+    Path(slug): Path<String>,
+) -> AppResult<Json<PublicProfile>> {
+    let (profile, platforms) = state.profile_service.get_public_profile(&slug).await?;
+    Ok(Json(PublicProfile { profile, platforms }))
 }
 
 #[utoipa::path(

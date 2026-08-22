@@ -9,6 +9,11 @@ use crate::state::AppState;
 use axum::routing::{delete, get, post, put};
 
 pub fn profile_router(state: &AppState) -> axum::Router<AppState> {
+    let public = axum::Router::<AppState>::new().route(
+        "/profile/public/{slug}",
+        get(controller::get_public_profile),
+    );
+
     let protected = axum::Router::<AppState>::new()
         .route("/profile", get(controller::get_profile))
         .route("/profile", post(controller::create_profile))
@@ -29,5 +34,7 @@ pub fn profile_router(state: &AppState) -> axum::Router<AppState> {
             auth_middleware,
         ));
 
-    axum::Router::<AppState>::new().merge(protected)
+    axum::Router::<AppState>::new()
+        .merge(public)
+        .merge(protected)
 }
