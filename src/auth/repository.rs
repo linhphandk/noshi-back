@@ -103,7 +103,7 @@ impl DieselSessionRepository {
 
 #[async_trait]
 impl SessionRepository for DieselSessionRepository {
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     async fn create(
         &self,
         user_id: Uuid,
@@ -130,7 +130,7 @@ impl SessionRepository for DieselSessionRepository {
         Ok(())
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, refresh_token))]
     async fn find_by_token(&self, refresh_token: &str) -> AppResult<Option<SessionInfo>> {
         let mut conn = self.pool.get().map_err(|e| {
             tracing::error!("Connection pool error: {:?}", e);
@@ -153,7 +153,7 @@ impl SessionRepository for DieselSessionRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, refresh_token))]
     async fn revoke(&self, refresh_token: &str) -> AppResult<()> {
         let mut conn = self.pool.get().map_err(|e| {
             tracing::error!("Connection pool error: {:?}", e);
@@ -168,7 +168,7 @@ impl SessionRepository for DieselSessionRepository {
         Ok(())
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     async fn revoke_all_for_user(&self, user_id: Uuid) -> AppResult<()> {
         let mut conn = self.pool.get().map_err(|e| {
             tracing::error!("Connection pool error: {:?}", e);
@@ -225,7 +225,7 @@ impl PasswordResetRepository for DieselPasswordResetRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, token_hash))]
     async fn find_by_token_hash(&self, token_hash: &str) -> AppResult<Option<PasswordReset>> {
         let mut conn = self.pool.get().map_err(|e| {
             tracing::error!("Connection pool error: {:?}", e);
@@ -241,7 +241,7 @@ impl PasswordResetRepository for DieselPasswordResetRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(id = %id))]
     async fn mark_used(&self, id: Uuid) -> AppResult<()> {
         let mut conn = self.pool.get().map_err(|e| {
             tracing::error!("Connection pool error: {:?}", e);

@@ -22,7 +22,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         }
     }
 
-    #[instrument(skip(self, user_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id))]
     pub async fn create_profile(
         &self,
         user_id: Uuid,
@@ -48,7 +48,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         Ok(profile)
     }
 
-    #[instrument(skip(self, user_id))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn get_profile(&self, user_id: Uuid) -> AppResult<crate::profile::models::Profile> {
         self.profile_repo
             .find_by_user_id(user_id)
@@ -56,7 +56,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .ok_or_else(|| AppError::NotFound("Profile not found".to_string()))
     }
 
-    #[instrument(skip(self, user_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id))]
     pub async fn update_profile(
         &self,
         user_id: Uuid,
@@ -84,13 +84,13 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .await
     }
 
-    #[instrument(skip(self, user_id))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn delete_profile(&self, user_id: Uuid) -> AppResult<()> {
         let profile = self.get_profile(user_id).await?;
         self.profile_repo.delete(profile.id).await
     }
 
-    #[instrument(skip(self, user_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id))]
     pub async fn add_manual_platform(
         &self,
         user_id: Uuid,
@@ -107,7 +107,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .await
     }
 
-    #[instrument(skip(self, user_id))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     pub async fn get_manual_platforms(
         &self,
         user_id: Uuid,
@@ -115,7 +115,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         self.manual_platform_repo.find_by_user_id(user_id).await
     }
 
-    #[instrument(skip(self, user_id, platform_id, req))]
+    #[instrument(skip(self, req), fields(user_id = %user_id, platform_id = %platform_id))]
     pub async fn update_manual_platform(
         &self,
         user_id: Uuid,
@@ -142,7 +142,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .await
     }
 
-    #[instrument(skip(self, user_id, platform_id))]
+    #[instrument(skip(self), fields(user_id = %user_id, platform_id = %platform_id))]
     pub async fn delete_manual_platform(&self, user_id: Uuid, platform_id: Uuid) -> AppResult<()> {
         let platform = self
             .manual_platform_repo

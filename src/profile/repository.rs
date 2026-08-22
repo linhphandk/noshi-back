@@ -39,7 +39,7 @@ impl ProfileRepository for DieselProfileRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(id = %id))]
     async fn find_by_id(&self, id: Uuid) -> AppResult<Option<Profile>> {
         let mut conn = self.pool.get().map_err(|e| {
             error!("Connection pool error: {:?}", e);
@@ -55,7 +55,7 @@ impl ProfileRepository for DieselProfileRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     async fn find_by_user_id(&self, user_id: Uuid) -> AppResult<Option<Profile>> {
         let mut conn = self.pool.get().map_err(|e| {
             error!("Connection pool error: {:?}", e);
@@ -71,7 +71,7 @@ impl ProfileRepository for DieselProfileRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(slug = %slug))]
     async fn find_by_slug(&self, slug: &str) -> AppResult<Option<Profile>> {
         let mut conn = self.pool.get().map_err(|e| {
             error!("Connection pool error: {:?}", e);
@@ -102,7 +102,7 @@ impl ProfileRepository for DieselProfileRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(id = %id))]
     async fn delete(&self, id: Uuid) -> AppResult<()> {
         let mut conn = self.pool.get().map_err(|e| {
             error!("Connection pool error: {:?}", e);
@@ -146,7 +146,7 @@ impl ManualPlatformRepository for DieselManualPlatformRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(id = %id))]
     async fn find_by_id(&self, id: Uuid) -> AppResult<Option<ManualPlatform>> {
         let mut conn = self.pool.get().map_err(|e| {
             error!("Connection pool error: {:?}", e);
@@ -162,7 +162,7 @@ impl ManualPlatformRepository for DieselManualPlatformRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(user_id = %user_id))]
     async fn find_by_user_id(&self, user_id: Uuid) -> AppResult<Vec<ManualPlatform>> {
         let mut conn = self.pool.get().map_err(|e| {
             error!("Connection pool error: {:?}", e);
@@ -192,7 +192,7 @@ impl ManualPlatformRepository for DieselManualPlatformRepository {
             })
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(id = %id))]
     async fn delete(&self, id: Uuid) -> AppResult<()> {
         let mut conn = self.pool.get().map_err(|e| {
             error!("Connection pool error: {:?}", e);

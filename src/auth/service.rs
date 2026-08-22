@@ -151,12 +151,12 @@ impl<
         Ok((user, tokens))
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, refresh_token))]
     pub async fn logout(&self, refresh_token: String) -> AppResult<()> {
         self.session_repo.revoke(&refresh_token).await
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, refresh_token))]
     pub async fn refresh_token(
         &self,
         refresh_token: String,
@@ -206,7 +206,7 @@ impl<
         Ok((user, tokens))
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, access_token))]
     pub async fn get_current_user(
         &self,
         access_token: String,
@@ -263,7 +263,7 @@ impl<
         Ok(())
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, token, new_password))]
     pub async fn reset_password(&self, token: String, new_password: String) -> AppResult<()> {
         if new_password.len() < 8 {
             return Err(AppError::BadRequest(

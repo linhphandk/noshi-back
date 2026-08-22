@@ -13,7 +13,7 @@ impl<R: WaitlistRepository> WaitlistService<R> {
         Self { repo }
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self), fields(email = %email))]
     pub async fn join(&self, email: String) -> AppResult<WaitlistResponse> {
         if email.is_empty() || !email.contains('@') {
             return Err(AppError::BadRequest("Invalid email".to_string()));
