@@ -7,6 +7,7 @@ Rust backend for the "noshi" project. Early/scaffold state.
 - Always use caveman mode (bone intensity). No filler, no hedging, fragments OK.
 - Always open a pull request instead of committing directly to main.
 - Always check what needs to be done and give a summary before starting work. Never start coding immediately.
+- Always add `debug!()` logs inside service, repository, and controller methods at key decision points (validation, db queries, provider calls, success/failure). Use `info!()` for final outcomes. Use `warn!()`/`error!()` for failures.
 
 ## Stack
 
