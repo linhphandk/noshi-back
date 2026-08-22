@@ -60,6 +60,31 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
             .ok_or_else(|| AppError::NotFound("Profile not found".to_string()))
     }
 
+    #[instrument(skip(self), fields(slug = %slug))]
+    pub async fn get_public_profile(
+        &self,
+        slug: &str,
+    ) -> AppResult<(
+        crate::profile::models::Profile,
+        Vec<crate::profile::models::ManualPlatform>,
+    )> {
+        debug!("looking up profile by slug");
+        let profile = self
+            .profile_repo
+            .find_by_slug(slug)
+            .await?
+            .ok_or_else(|| AppError::NotFound("Profile not found".to_string()))?;
+        if !profile.is_published {
+            return Err(AppError::NotFound("Profile not found".to_string()));
+        }
+        debug!("fetching platforms");
+        let platforms = self
+            .manual_platform_repo
+            .find_by_user_id(profile.user_id)
+            .await?;
+        Ok((profile, platforms))
+    }
+
     #[instrument(skip(self, req), fields(user_id = %user_id))]
     pub async fn update_profile(
         &self,

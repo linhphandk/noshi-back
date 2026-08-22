@@ -95,3 +95,10 @@ pub struct UpdateManualPlatformRequest {
     pub handle: Option<String>,
     pub follower_count: Option<i32>,
 }
+
+#[derive(Serialize, ToSchema)]
+pub struct PublicProfile {
+    #[serde(flatten)]
+    pub profile: Profile,
+    pub platforms: Vec<ManualPlatform>,
+}

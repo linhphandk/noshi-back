@@ -5,7 +5,7 @@ use crate::auth::models::{
     ForgotPasswordRequest, LoginRequest, RegisterRequest, ResetPasswordRequest,
 };
 use crate::profile::models::{
-    CreateManualPlatformRequest, CreateProfileRequest, ManualPlatform, Profile,
+    CreateManualPlatformRequest, CreateProfileRequest, ManualPlatform, Profile, PublicProfile,
     UpdateManualPlatformRequest, UpdateProfileRequest,
 };
 
@@ -27,6 +27,7 @@ use crate::profile::models::{
         crate::profile::controller::get_manual_platforms,
         crate::profile::controller::update_manual_platform,
         crate::profile::controller::delete_manual_platform,
+        crate::profile::controller::get_public_profile,
     ),
     components(
         schemas(
@@ -42,6 +43,7 @@ use crate::profile::models::{
             ManualPlatform,
             CreateManualPlatformRequest,
             UpdateManualPlatformRequest,
+            PublicProfile,
             crate::shared::errors::ErrorResponse,
         ),
     ),
