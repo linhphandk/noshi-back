@@ -17,6 +17,20 @@ fn parse_user_id(user: &AuthenticatedUser) -> AppResult<uuid::Uuid> {
         .map_err(|_| AppError::BadRequest("Invalid user ID".to_string()))
 }
 
+#[utoipa::path(
+    post,
+    path = "/profile",
+    request_body = CreateProfileRequest,
+    responses(
+        (status = 201, description = "Profile created", body = Profile),
+        (status = 400, description = "Validation error"),
+        (status = 409, description = "Profile already exists"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user, req))]
 pub async fn create_profile(
     Extension(user): Extension<AuthenticatedUser>,
@@ -28,6 +42,18 @@ pub async fn create_profile(
     Ok((StatusCode::CREATED, Json(profile)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/profile",
+    responses(
+        (status = 200, description = "Profile found", body = Profile),
+        (status = 404, description = "Profile not found"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user))]
 pub async fn get_profile(
     Extension(user): Extension<AuthenticatedUser>,
@@ -38,6 +64,19 @@ pub async fn get_profile(
     Ok(Json(profile))
 }
 
+#[utoipa::path(
+    put,
+    path = "/profile",
+    request_body = UpdateProfileRequest,
+    responses(
+        (status = 200, description = "Profile updated", body = Profile),
+        (status = 404, description = "Profile not found"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user, req))]
 pub async fn update_profile(
     Extension(user): Extension<AuthenticatedUser>,
@@ -49,6 +88,18 @@ pub async fn update_profile(
     Ok(Json(profile))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/profile",
+    responses(
+        (status = 200, description = "Profile deleted"),
+        (status = 404, description = "Profile not found"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user))]
 pub async fn delete_profile(
     Extension(user): Extension<AuthenticatedUser>,
@@ -59,6 +110,19 @@ pub async fn delete_profile(
     Ok(StatusCode::OK)
 }
 
+#[utoipa::path(
+    post,
+    path = "/profile/platforms",
+    request_body = CreateManualPlatformRequest,
+    responses(
+        (status = 201, description = "Platform added", body = ManualPlatform),
+        (status = 404, description = "Profile not found"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user, req))]
 pub async fn add_manual_platform(
     Extension(user): Extension<AuthenticatedUser>,
@@ -73,6 +137,17 @@ pub async fn add_manual_platform(
     Ok((StatusCode::CREATED, Json(platform)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/profile/platforms",
+    responses(
+        (status = 200, description = "List of platforms", body = Vec<ManualPlatform>),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user))]
 pub async fn get_manual_platforms(
     Extension(user): Extension<AuthenticatedUser>,
@@ -83,6 +158,22 @@ pub async fn get_manual_platforms(
     Ok(Json(platforms))
 }
 
+#[utoipa::path(
+    put,
+    path = "/profile/platforms/{platform_id}",
+    params(
+        ("platform_id" = Uuid, Path, description = "Platform ID"),
+    ),
+    request_body = UpdateManualPlatformRequest,
+    responses(
+        (status = 200, description = "Platform updated", body = ManualPlatform),
+        (status = 404, description = "Platform not found"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user, platform_id, req))]
 pub async fn update_manual_platform(
     Extension(user): Extension<AuthenticatedUser>,
@@ -98,6 +189,21 @@ pub async fn update_manual_platform(
     Ok(Json(platform))
 }
 
+#[utoipa::path(
+    delete,
+    path = "/profile/platforms/{platform_id}",
+    params(
+        ("platform_id" = Uuid, Path, description = "Platform ID"),
+    ),
+    responses(
+        (status = 200, description = "Platform deleted"),
+        (status = 404, description = "Platform not found"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "profile"
+)]
 #[instrument(skip(state, user, platform_id))]
 pub async fn delete_manual_platform(
     Extension(user): Extension<AuthenticatedUser>,

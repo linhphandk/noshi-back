@@ -59,6 +59,17 @@ pub struct UserResponse {
     pub name: String,
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/register",
+    request_body = RegisterRequest,
+    responses(
+        (status = 201, description = "User registered", body = AuthResponse),
+        (status = 400, description = "Validation error"),
+        (status = 409, description = "Email already registered"),
+    ),
+    tag = "auth"
+)]
 #[instrument(skip(state, req), fields(email = %req.email))]
 pub async fn register(
     State(state): State<AppState>,
@@ -85,6 +96,16 @@ pub async fn register(
     Ok((StatusCode::CREATED, resp_headers, Json(response)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/login",
+    request_body = LoginRequest,
+    responses(
+        (status = 200, description = "Logged in", body = AuthResponse),
+        (status = 400, description = "Invalid credentials"),
+    ),
+    tag = "auth"
+)]
 #[instrument(skip(state, req), fields(email = %req.email))]
 pub async fn login(
     State(state): State<AppState>,
@@ -107,6 +128,14 @@ pub async fn login(
     Ok((StatusCode::OK, resp_headers, Json(response)))
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/logout",
+    responses(
+        (status = 200, description = "Logged out"),
+    ),
+    tag = "auth"
+)]
 #[instrument(skip(state, headers))]
 pub async fn logout(
     State(state): State<AppState>,
@@ -120,6 +149,15 @@ pub async fn logout(
     Ok((StatusCode::OK, resp_headers))
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/refresh",
+    responses(
+        (status = 200, description = "Token refreshed", body = AuthResponse),
+        (status = 401, description = "Missing or invalid refresh token"),
+    ),
+    tag = "auth"
+)]
 #[instrument(skip(state, headers))]
 pub async fn refresh(
     State(state): State<AppState>,
@@ -145,6 +183,18 @@ pub async fn refresh(
     Ok((StatusCode::OK, resp_headers, Json(response)))
 }
 
+#[utoipa::path(
+    get,
+    path = "/auth/me",
+    responses(
+        (status = 200, description = "Current user", body = UserResponse),
+        (status = 401, description = "Unauthorized"),
+    ),
+    security(
+        ("bearer" = [])
+    ),
+    tag = "auth"
+)]
 #[instrument(skip(state))]
 pub async fn me(
     Extension(user): Extension<AuthenticatedUser>,
@@ -158,6 +208,15 @@ pub async fn me(
     }))
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/forgot-password",
+    request_body = ForgotPasswordRequest,
+    responses(
+        (status = 200, description = "Reset email sent"),
+    ),
+    tag = "auth"
+)]
 #[instrument(skip(state, req))]
 pub async fn forgot_password(
     State(state): State<AppState>,
@@ -167,6 +226,16 @@ pub async fn forgot_password(
     Ok(StatusCode::OK)
 }
 
+#[utoipa::path(
+    post,
+    path = "/auth/reset-password",
+    request_body = ResetPasswordRequest,
+    responses(
+        (status = 200, description = "Password reset"),
+        (status = 400, description = "Invalid or expired token"),
+    ),
+    tag = "auth"
+)]
 #[instrument(skip(state, req))]
 pub async fn reset_password(
     State(state): State<AppState>,

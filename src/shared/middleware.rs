@@ -2,6 +2,7 @@ use axum::extract::{Request, State};
 use axum::http::StatusCode;
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
+use tracing::{debug, warn};
 
 use crate::shared::types::AuthenticatedUser;
 use crate::state::AppState;
@@ -18,6 +19,7 @@ pub async fn auth_middleware(
     {
         Some(h) if h.starts_with("Bearer ") => h[7..].to_string(),
         _ => {
+            debug!("auth: missing or invalid Authorization header");
             return (
                 StatusCode::UNAUTHORIZED,
                 "Missing or invalid Authorization header",
@@ -31,8 +33,12 @@ pub async fn auth_middleware(
         .get_current_user(token_owned.clone())
         .await
     {
-        Ok(u) => u,
+        Ok(u) => {
+            debug!(user_id = %u.id, email = %u.email, "auth: token valid");
+            u
+        }
         Err(_) => {
+            warn!("auth: invalid or expired token");
             return (StatusCode::UNAUTHORIZED, "Invalid or expired token").into_response();
         }
     };

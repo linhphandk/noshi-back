@@ -4,6 +4,7 @@ use axum::Json;
 use serde::Serialize;
 use thiserror::Error;
 use tracing::{error, warn};
+use utoipa::ToSchema;
 
 pub type AppResult<T> = Result<T, AppError>;
 
@@ -25,7 +26,7 @@ pub enum AppError {
     NotImplemented,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ErrorResponse {
     pub message: String,
 }
