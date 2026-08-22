@@ -8,6 +8,7 @@ use uuid::Uuid;
 pub struct Tokens {
     pub access_token: String,
     pub expires_in: u64,
+    pub refresh_token: Option<String>,
 }
 
 #[derive(Debug, Clone)]

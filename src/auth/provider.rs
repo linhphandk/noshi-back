@@ -79,6 +79,7 @@ impl AuthProvider for LocalAuthProvider {
         let tokens = Tokens {
             access_token,
             expires_in: self.jwt_expiry_minutes * 60,
+            refresh_token: None,
         };
 
         Ok((user_info, tokens))
@@ -107,6 +108,7 @@ impl AuthProvider for LocalAuthProvider {
         let tokens = Tokens {
             access_token,
             expires_in: self.jwt_expiry_minutes * 60,
+            refresh_token: None,
         };
 
         let user_info = UserInfo {

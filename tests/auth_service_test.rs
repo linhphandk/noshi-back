@@ -119,6 +119,7 @@ async fn test_register_success() {
             Tokens {
                 access_token: "token".to_string(),
                 expires_in: 900,
+                refresh_token: None,
             },
         ))
     });
@@ -229,6 +230,7 @@ async fn test_login_success() {
             Tokens {
                 access_token: "token".to_string(),
                 expires_in: 900,
+                refresh_token: None,
             },
             UserInfo {
                 sub: "1".to_string(),
