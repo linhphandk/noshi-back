@@ -132,6 +132,18 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
     ) -> AppResult<crate::profile::models::ManualPlatform> {
         debug!("verifying profile exists");
         let _profile = self.get_profile(user_id).await?;
+        debug!("checking for existing platform");
+        if self
+            .manual_platform_repo
+            .find_by_user_and_platform(user_id, &req.platform)
+            .await?
+            .is_some()
+        {
+            return Err(AppError::Conflict(format!(
+                "Platform '{}' already exists",
+                req.platform
+            )));
+        }
         debug!("inserting platform");
         self.manual_platform_repo
             .create(NewManualPlatform {

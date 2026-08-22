@@ -30,6 +30,11 @@ mock! {
         async fn create(&self, platform: NewManualPlatform) -> AppResult<ManualPlatform>;
         async fn find_by_id(&self, id: Uuid) -> AppResult<Option<ManualPlatform>>;
         async fn find_by_user_id(&self, user_id: Uuid) -> AppResult<Vec<ManualPlatform>>;
+        async fn find_by_user_and_platform(
+            &self,
+            user_id: Uuid,
+            platform: &str,
+        ) -> AppResult<Option<ManualPlatform>>;
         async fn update(&self, id: Uuid, platform: UpdateManualPlatform) -> AppResult<ManualPlatform>;
         async fn delete(&self, id: Uuid) -> AppResult<()>;
     }
@@ -157,6 +162,9 @@ async fn test_add_manual_platform() {
         .expect_find_by_user_id()
         .returning(move |_| Ok(Some(make_profile(user_id))));
     manual_platform_repo
+        .expect_find_by_user_and_platform()
+        .returning(|_, _| Ok(None));
+    manual_platform_repo
         .expect_create()
         .returning(move |_| Ok(make_platform(user_id)));
     let service = ProfileService::new(profile_repo, manual_platform_repo);
@@ -171,6 +179,31 @@ async fn test_add_manual_platform() {
         )
         .await;
     assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_add_manual_platform_duplicate() {
+    let mut profile_repo = MockTestProfileRepository::default();
+    let mut manual_platform_repo = MockTestManualPlatformRepository::default();
+    let user_id = Uuid::now_v7();
+    profile_repo
+        .expect_find_by_user_id()
+        .returning(move |_| Ok(Some(make_profile(user_id))));
+    manual_platform_repo
+        .expect_find_by_user_and_platform()
+        .returning(move |_, _| Ok(Some(make_platform(user_id))));
+    let service = ProfileService::new(profile_repo, manual_platform_repo);
+    let result = service
+        .add_manual_platform(
+            user_id,
+            CreateManualPlatformRequest {
+                platform: "instagram".to_string(),
+                handle: "@test".to_string(),
+                follower_count: 1000,
+            },
+        )
+        .await;
+    assert!(matches!(result, Err(AppError::Conflict(_))));
 }
 
 #[tokio::test]

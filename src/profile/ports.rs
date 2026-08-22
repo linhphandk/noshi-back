@@ -21,6 +21,11 @@ pub trait ManualPlatformRepository: Send + Sync {
     async fn create(&self, platform: NewManualPlatform) -> AppResult<ManualPlatform>;
     async fn find_by_id(&self, id: Uuid) -> AppResult<Option<ManualPlatform>>;
     async fn find_by_user_id(&self, user_id: Uuid) -> AppResult<Vec<ManualPlatform>>;
+    async fn find_by_user_and_platform(
+        &self,
+        user_id: Uuid,
+        platform: &str,
+    ) -> AppResult<Option<ManualPlatform>>;
     async fn update(&self, id: Uuid, platform: UpdateManualPlatform) -> AppResult<ManualPlatform>;
     async fn delete(&self, id: Uuid) -> AppResult<()>;
 }

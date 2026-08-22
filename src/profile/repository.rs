@@ -177,6 +177,27 @@ impl ManualPlatformRepository for DieselManualPlatformRepository {
             })
     }
 
+    #[instrument(skip(self), fields(user_id = %user_id, platform = %platform))]
+    async fn find_by_user_and_platform(
+        &self,
+        user_id: Uuid,
+        platform: &str,
+    ) -> AppResult<Option<ManualPlatform>> {
+        let mut conn = self.pool.get().map_err(|e| {
+            error!("Connection pool error: {:?}", e);
+            AppError::Internal
+        })?;
+        manual_platforms::table
+            .filter(manual_platforms::user_id.eq(user_id))
+            .filter(manual_platforms::platform.eq(platform))
+            .first::<ManualPlatform>(&mut conn)
+            .optional()
+            .map_err(|e| {
+                error!("Database error: {:?}", e);
+                AppError::Internal
+            })
+    }
+
     #[instrument(skip(self, platform))]
     async fn update(&self, id: Uuid, platform: UpdateManualPlatform) -> AppResult<ManualPlatform> {
         let mut conn = self.pool.get().map_err(|e| {
