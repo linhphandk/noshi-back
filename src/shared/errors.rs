@@ -6,6 +6,8 @@ use thiserror::Error;
 use tracing::{error, warn};
 use utoipa::ToSchema;
 
+use crate::shared::crypto;
+
 pub type AppResult<T> = Result<T, AppError>;
 
 #[derive(Debug, Error)]
@@ -24,6 +26,13 @@ pub enum AppError {
     Internal,
     #[error("Not implemented")]
     NotImplemented,
+}
+
+impl From<crypto::Error> for AppError {
+    fn from(e: crypto::Error) -> Self {
+        tracing::error!("Crypto error: {:?}", e);
+        AppError::Internal
+    }
 }
 
 #[derive(Serialize, ToSchema)]
