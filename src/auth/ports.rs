@@ -26,6 +26,8 @@ pub trait AuthProvider: Send + Sync {
     async fn generate_access_token(&self, user_id: &str, email: &str) -> AppResult<String>;
 
     fn token_expiry_seconds(&self) -> u64;
+
+    fn jwt_secret(&self) -> &str;
 }
 
 #[async_trait]

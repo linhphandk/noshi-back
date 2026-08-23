@@ -7,6 +7,7 @@ use utoipa_scalar::{Scalar, Servable};
 use crate::api_doc::ApiDoc;
 use crate::auth::auth_router;
 use crate::profile::profile_router;
+use crate::social::social_router;
 use crate::state::AppState;
 use crate::waitlist::waitlist_router;
 
@@ -18,6 +19,7 @@ pub fn create_router(state: AppState) -> Router {
         .merge(waitlist_router(&state))
         .merge(auth_router(&state))
         .merge(profile_router(&state))
+        .merge(social_router(&state))
         .with_state(state)
 }
 

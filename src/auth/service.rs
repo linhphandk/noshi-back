@@ -56,6 +56,10 @@ impl<
         }
     }
 
+    pub fn jwt_secret(&self) -> &str {
+        self.auth_provider.jwt_secret()
+    }
+
     #[instrument(skip(self), fields(email = %email))]
     pub async fn register(
         &self,

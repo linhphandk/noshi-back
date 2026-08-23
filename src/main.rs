@@ -35,7 +35,9 @@ async fn main() {
         config.jwt_secret.clone(),
         config.jwt_expiry_minutes,
         frontend_url,
-    );
+        &config,
+    )
+    .expect("Failed to initialize AppState");
     let app = create_router(state);
 
     let cors = CorsLayer::new()
