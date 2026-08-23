@@ -54,6 +54,29 @@ diesel::table! {
 }
 
 diesel::table! {
+    social_connections (id) {
+        id -> Uuid,
+        user_id -> Uuid,
+        #[max_length = 50]
+        platform -> Varchar,
+        #[max_length = 255]
+        platform_user_id -> Varchar,
+        #[max_length = 255]
+        handle -> Varchar,
+        access_token_encrypted -> Bytea,
+        refresh_token_encrypted -> Nullable<Bytea>,
+        token_expires_at -> Timestamp,
+        follower_count -> Int4,
+        engagement_rate -> Nullable<Float8>,
+        audience_demographics -> Nullable<Jsonb>,
+        last_synced_at -> Nullable<Timestamp>,
+        is_primary -> Bool,
+        created_at -> Timestamp,
+        updated_at -> Timestamp,
+    }
+}
+
+diesel::table! {
     users (id) {
         id -> Uuid,
         #[max_length = 255]
@@ -80,12 +103,14 @@ diesel::joinable!(manual_platforms -> users (user_id));
 diesel::joinable!(password_resets -> users (user_id));
 diesel::joinable!(profiles -> users (user_id));
 diesel::joinable!(sessions -> users (user_id));
+diesel::joinable!(social_connections -> users (user_id));
 
 diesel::allow_tables_to_appear_in_same_query!(
     manual_platforms,
     password_resets,
     profiles,
     sessions,
+    social_connections,
     users,
     waitlist,
 );
