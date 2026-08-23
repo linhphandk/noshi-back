@@ -87,6 +87,7 @@ async fn test_create_profile() {
                 slug: "test-user".to_string(),
                 niches: vec!["tech".to_string()],
                 headline: "Tech Influencer".to_string(),
+                is_published: None,
             },
         )
         .await;
@@ -109,6 +110,7 @@ async fn test_create_profile_duplicate() {
                 slug: "test-user".to_string(),
                 niches: vec![],
                 headline: "Hi".to_string(),
+                is_published: None,
             },
         )
         .await;

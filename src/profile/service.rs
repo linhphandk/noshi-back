@@ -45,6 +45,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
                 slug: req.slug,
                 niches: req.niches.into_iter().map(Some).collect(),
                 headline: req.headline,
+                is_published: req.is_published.unwrap_or(false),
             })
             .await?;
         info!(user_id = %user_id, "profile created");
@@ -147,6 +148,7 @@ impl<P: ProfileRepository, M: ManualPlatformRepository> ProfileService<P, M> {
         debug!("inserting platform");
         self.manual_platform_repo
             .create(NewManualPlatform {
+                id: Uuid::now_v7(),
                 user_id,
                 platform: req.platform,
                 handle: req.handle,

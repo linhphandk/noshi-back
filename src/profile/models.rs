@@ -26,6 +26,7 @@ pub struct NewProfile {
     pub slug: String,
     pub niches: Vec<Option<String>>,
     pub headline: String,
+    pub is_published: bool,
 }
 
 #[derive(AsChangeset)]
@@ -43,6 +44,7 @@ pub struct CreateProfileRequest {
     pub slug: String,
     pub niches: Vec<String>,
     pub headline: String,
+    pub is_published: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
@@ -68,6 +70,7 @@ pub struct ManualPlatform {
 #[derive(Insertable)]
 #[diesel(table_name = crate::schema::manual_platforms)]
 pub struct NewManualPlatform {
+    pub id: Uuid,
     pub user_id: Uuid,
     pub platform: String,
     pub handle: String,
