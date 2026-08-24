@@ -40,6 +40,7 @@ impl UserRepository for DieselUserRepository {
 
     #[instrument(skip(self))]
     async fn find_by_email(&self, email: &str) -> AppResult<Option<User>> {
+        let email = email.to_lowercase();
         let mut conn = self.pool.get().map_err(|e| {
             tracing::error!("Connection pool error: {:?}", e);
             AppError::Internal
