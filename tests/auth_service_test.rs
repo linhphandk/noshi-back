@@ -34,6 +34,8 @@ mock! {
         async fn generate_access_token(&self, user_id: &str, email: &str) -> AppResult<String>;
 
         fn token_expiry_seconds(&self) -> u64;
+
+        fn jwt_secret(&self) -> &str;
     }
 }
 
@@ -108,6 +110,9 @@ async fn test_register_success() {
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
 
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
     auth_provider.expect_register().returning(|_, _, _| {
         Ok((
             UserInfo {
@@ -153,11 +158,15 @@ async fn test_register_success() {
 
 #[tokio::test]
 async fn test_register_duplicate_email() {
-    let auth_provider = MockTestAuthProvider::default();
+    let mut auth_provider = MockTestAuthProvider::default();
     let mut user_repo = MockTestUserRepository::default();
     let session_repo = MockTestSessionRepository::default();
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
+
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
 
     user_repo
         .expect_find_by_email()
@@ -186,11 +195,15 @@ async fn test_register_duplicate_email() {
 
 #[tokio::test]
 async fn test_register_short_password() {
-    let auth_provider = MockTestAuthProvider::default();
+    let mut auth_provider = MockTestAuthProvider::default();
     let user_repo = MockTestUserRepository::default();
     let session_repo = MockTestSessionRepository::default();
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
+
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
 
     let service = AuthService::new(
         auth_provider,
@@ -220,6 +233,10 @@ async fn test_login_success() {
     let mut session_repo = MockTestSessionRepository::default();
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
+
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
 
     user_repo
         .expect_find_by_email()
@@ -268,6 +285,10 @@ async fn test_login_wrong_password() {
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
 
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
+
     user_repo
         .expect_find_by_email()
         .returning(move |_| Ok(Some(make_user())));
@@ -297,11 +318,15 @@ async fn test_login_wrong_password() {
 
 #[tokio::test]
 async fn test_forgot_password_sends_email() {
-    let auth_provider = MockTestAuthProvider::default();
+    let mut auth_provider = MockTestAuthProvider::default();
     let mut user_repo = MockTestUserRepository::default();
     let mut password_reset_repo = MockTestPasswordResetRepository::default();
     let session_repo = MockTestSessionRepository::default();
     let mut email_provider = MockTestEmailProvider::default();
+
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
 
     user_repo
         .expect_find_by_email()
@@ -339,11 +364,15 @@ async fn test_forgot_password_sends_email() {
 
 #[tokio::test]
 async fn test_forgot_password_unknown_email_returns_ok() {
-    let auth_provider = MockTestAuthProvider::default();
+    let mut auth_provider = MockTestAuthProvider::default();
     let mut user_repo = MockTestUserRepository::default();
     let session_repo = MockTestSessionRepository::default();
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
+
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
 
     user_repo.expect_find_by_email().returning(|_| Ok(None));
 
@@ -371,6 +400,10 @@ async fn test_get_current_user() {
     let session_repo = MockTestSessionRepository::default();
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
+
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
 
     auth_provider.expect_introspect_token().returning(|_| {
         Ok(UserInfo {
@@ -407,6 +440,10 @@ async fn test_get_current_user_invalid_token() {
     let session_repo = MockTestSessionRepository::default();
     let password_reset_repo = MockTestPasswordResetRepository::default();
     let email_provider = MockTestEmailProvider::default();
+
+    auth_provider
+        .expect_jwt_secret()
+        .return_const("test-secret".to_string());
 
     auth_provider
         .expect_introspect_token()

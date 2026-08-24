@@ -10,7 +10,7 @@ use crate::shared::errors::{AppError, AppResult};
 
 #[derive(Clone)]
 pub struct LocalAuthProvider {
-    jwt_secret: String,
+    pub jwt_secret: String,
     jwt_expiry_minutes: u64,
 }
 
@@ -146,5 +146,9 @@ impl AuthProvider for LocalAuthProvider {
 
     fn token_expiry_seconds(&self) -> u64 {
         self.jwt_expiry_minutes * 60
+    }
+
+    fn jwt_secret(&self) -> &str {
+        &self.jwt_secret
     }
 }

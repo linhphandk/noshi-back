@@ -4,5 +4,6 @@ pub mod profile;
 pub mod router;
 pub mod schema;
 pub mod shared;
+pub mod social;
 pub mod state;
 pub mod waitlist;

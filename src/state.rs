@@ -7,11 +7,17 @@ use crate::auth::repository::{
 use crate::auth::service::AuthService;
 use crate::profile::repository::{DieselManualPlatformRepository, DieselProfileRepository};
 use crate::profile::service::ProfileService;
+use crate::shared::crypto;
 use crate::shared::db::DbPool;
-use crate::shared::errors::AppResult;
+use crate::shared::errors::{AppError, AppResult};
 use crate::shared::types::AuthenticatedUser;
+use crate::social::instagram::InstagramProvider;
+use crate::social::ports::SocialProvider;
+use crate::social::repository::DieselSocialConnectionRepository;
+use crate::social::service::SocialService;
 use crate::waitlist::repository::DieselWaitlistRepository;
 use crate::waitlist::service::WaitlistService;
+use std::sync::Arc;
 
 pub type ConcreteAuthService = AuthService<
     LocalAuthProvider,
@@ -24,11 +30,15 @@ pub type ConcreteAuthService = AuthService<
 pub type ConcreteProfileService =
     ProfileService<DieselProfileRepository, DieselManualPlatformRepository>;
 
+pub type ConcreteSocialService = SocialService<DieselSocialConnectionRepository>;
+
 #[derive(Clone)]
 pub struct AppState {
     pub waitlist_service: WaitlistService<DieselWaitlistRepository>,
     pub auth_service: ConcreteAuthService,
     pub profile_service: ConcreteProfileService,
+    pub social_service: ConcreteSocialService,
+    pub social_oauth_state_secret: String,
 }
 
 impl AppState {
@@ -37,11 +47,12 @@ impl AppState {
         jwt_secret: String,
         jwt_expiry_minutes: u64,
         frontend_url: String,
-    ) -> Self {
+        config: &crate::shared::config::Config,
+    ) -> AppResult<Self> {
         let waitlist_repo = DieselWaitlistRepository::new(pool.clone());
         let waitlist_service = WaitlistService::new(waitlist_repo);
 
-        let auth_provider = LocalAuthProvider::new(jwt_secret, jwt_expiry_minutes);
+        let auth_provider = LocalAuthProvider::new(jwt_secret.clone(), jwt_expiry_minutes);
         let user_repo = DieselUserRepository::new(pool.clone());
         let session_repo = DieselSessionRepository::new(pool.clone());
         let password_reset_repo = DieselPasswordResetRepository::new(pool.clone());
@@ -77,14 +88,54 @@ impl AppState {
             frontend_url,
         );
 
-        Self {
+        let social_repo = DieselSocialConnectionRepository::new(pool.clone());
+
+        let encryption_key = config
+            .token_encryption_key
+            .as_ref()
+            .and_then(|k| crypto::decode_key(k).ok())
+            .ok_or_else(|| {
+                tracing::error!(
+                    "TOKEN_ENCRYPTION_KEY not set or invalid (must be 32 bytes base64)"
+                );
+                AppError::Internal
+            })?;
+
+        let mut providers: std::collections::HashMap<String, Arc<dyn SocialProvider>> =
+            std::collections::HashMap::new();
+        if let (Some(client_id), Some(client_secret), Some(redirect_uri)) = (
+            config.instagram_client_id.clone(),
+            config.instagram_client_secret.clone(),
+            config.instagram_redirect_uri.clone(),
+        ) {
+            providers.insert(
+                "instagram".to_string(),
+                Arc::new(InstagramProvider::new(
+                    client_id,
+                    client_secret,
+                    redirect_uri,
+                )),
+            );
+        }
+
+        let social_service = SocialService::new(social_repo, providers, encryption_key);
+
+        let social_oauth_state_secret =
+            config.social_oauth_state_secret.clone().unwrap_or_else(|| {
+                tracing::warn!("SOCIAL_OAUTH_STATE_SECRET not set, falling back to JWT_SECRET");
+                jwt_secret.clone()
+            });
+
+        Ok(Self {
             waitlist_service,
             auth_service,
             profile_service: ProfileService::new(
                 DieselProfileRepository::new(pool.clone()),
                 DieselManualPlatformRepository::new(pool),
             ),
-        }
+            social_service,
+            social_oauth_state_secret,
+        })
     }
 }
 
