@@ -67,6 +67,7 @@ impl<
         name: String,
         password: String,
     ) -> AppResult<(crate::auth::models::User, crate::auth::models::Tokens)> {
+        let email = email.to_lowercase();
         debug!("validating input");
         if email.is_empty() {
             return Err(AppError::BadRequest("Email cannot be empty".to_string()));
@@ -129,6 +130,7 @@ impl<
         email: String,
         password: String,
     ) -> AppResult<(crate::auth::models::User, crate::auth::models::Tokens)> {
+        let email = email.to_lowercase();
         debug!("looking up user");
         let user = self.user_repo.find_by_email(&email).await?;
         let user = user.ok_or_else(|| {
