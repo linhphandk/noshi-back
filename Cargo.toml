@@ -42,3 +42,4 @@ tokio-test = "0.4"
 testcontainers = "0.15"
 testcontainers-modules = { version = "0.3", features = ["postgres", "minio"] }
 tower = "0.5"
+serial_test = "3.1"

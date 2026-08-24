@@ -8,11 +8,11 @@ use crate::shared::errors::{AppError, AppResult};
 use crate::social::models::{SocialInsights, SocialProfile, SocialTokens};
 use crate::social::ports::SocialProvider;
 
-const INSTAGRAM_AUTH_URL: &str = "https://api.instagram.com/oauth/authorize";
-const INSTAGRAM_TOKEN_URL: &str = "https://api.instagram.com/oauth/access_token";
-const INSTAGRAM_EXCHANGE_URL: &str = "https://graph.instagram.com/access_token";
-const INSTAGRAM_REFRESH_URL: &str = "https://graph.instagram.com/refresh_access_token";
-const INSTAGRAM_GRAPH_URL: &str = "https://graph.instagram.com";
+const DEFAULT_AUTH_URL: &str = "https://api.instagram.com/oauth/authorize";
+const DEFAULT_TOKEN_URL: &str = "https://api.instagram.com/oauth/access_token";
+const DEFAULT_EXCHANGE_URL: &str = "https://graph.instagram.com/access_token";
+const DEFAULT_REFRESH_URL: &str = "https://graph.instagram.com/refresh_access_token";
+const DEFAULT_GRAPH_URL: &str = "https://graph.instagram.com";
 
 #[derive(Deserialize)]
 struct TokenExchangeResponse {
@@ -82,22 +82,55 @@ pub struct InstagramProvider {
     client_id: String,
     client_secret: String,
     redirect_uri: String,
+    auth_url: String,
+    token_url: String,
+    exchange_url: String,
+    refresh_url: String,
+    graph_url: String,
 }
 
 impl InstagramProvider {
     pub fn new(client_id: String, client_secret: String, redirect_uri: String) -> Self {
+        Self::with_custom_urls(
+            client_id,
+            client_secret,
+            redirect_uri,
+            DEFAULT_AUTH_URL.to_string(),
+            DEFAULT_TOKEN_URL.to_string(),
+            DEFAULT_EXCHANGE_URL.to_string(),
+            DEFAULT_REFRESH_URL.to_string(),
+            DEFAULT_GRAPH_URL.to_string(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn with_custom_urls(
+        client_id: String,
+        client_secret: String,
+        redirect_uri: String,
+        auth_url: String,
+        token_url: String,
+        exchange_url: String,
+        refresh_url: String,
+        graph_url: String,
+    ) -> Self {
         Self {
             client: Client::new(),
             client_id,
             client_secret,
             redirect_uri,
+            auth_url,
+            token_url,
+            exchange_url,
+            refresh_url,
+            graph_url,
         }
     }
 }
 
 impl InstagramProvider {
     fn build_authorize_url(&self, state: &str) -> String {
-        let mut url = Url::parse(INSTAGRAM_AUTH_URL).unwrap();
+        let mut url = Url::parse(&self.auth_url).unwrap();
         url.query_pairs_mut()
             .append_pair("client_id", &self.client_id)
             .append_pair("redirect_uri", &self.redirect_uri)
@@ -120,7 +153,7 @@ impl InstagramProvider {
 
         let resp = self
             .client
-            .post(INSTAGRAM_TOKEN_URL)
+            .post(&self.token_url)
             .form(&params)
             .send()
             .await
@@ -145,7 +178,7 @@ impl InstagramProvider {
         &self,
         short_token: &str,
     ) -> AppResult<LongLivedTokenResponse> {
-        let mut url = Url::parse(INSTAGRAM_EXCHANGE_URL).unwrap();
+        let mut url = Url::parse(&self.exchange_url).unwrap();
         url.query_pairs_mut()
             .append_pair("grant_type", "ig_exchange_token")
             .append_pair("client_secret", &self.client_secret)
@@ -169,7 +202,7 @@ impl InstagramProvider {
     }
 
     async fn refresh_long_lived(&self, token: &str) -> AppResult<LongLivedTokenResponse> {
-        let mut url = Url::parse(INSTAGRAM_REFRESH_URL).unwrap();
+        let mut url = Url::parse(&self.refresh_url).unwrap();
         url.query_pairs_mut()
             .append_pair("grant_type", "ig_refresh_token")
             .append_pair("access_token", token);
@@ -236,7 +269,7 @@ impl SocialProvider for InstagramProvider {
     #[instrument(skip(self))]
     async fn fetch_profile(&self, token: &str) -> AppResult<SocialProfile> {
         debug!("Fetching Instagram profile");
-        let mut url = Url::parse(&format!("{}/me", INSTAGRAM_GRAPH_URL)).unwrap();
+        let mut url = Url::parse(&format!("{}/me", self.graph_url)).unwrap();
         url.query_pairs_mut()
             .append_pair(
                 "fields",
@@ -294,11 +327,8 @@ impl InstagramProvider {
         let since = (chrono::Utc::now() - chrono::Duration::days(30)).timestamp();
         let until = chrono::Utc::now().timestamp();
 
-        let mut url = Url::parse(&format!(
-            "{}/{}/insights",
-            INSTAGRAM_GRAPH_URL, platform_user_id
-        ))
-        .unwrap();
+        let mut url =
+            Url::parse(&format!("{}/{}/insights", self.graph_url, platform_user_id)).unwrap();
         url.query_pairs_mut()
             .append_pair("metric", "reach,accounts_engaged,total_interactions")
             .append_pair("period", "day")
@@ -348,11 +378,8 @@ impl InstagramProvider {
         token: &str,
         platform_user_id: &str,
     ) -> AppResult<Option<serde_json::Value>> {
-        let mut url = Url::parse(&format!(
-            "{}/{}/insights",
-            INSTAGRAM_GRAPH_URL, platform_user_id
-        ))
-        .unwrap();
+        let mut url =
+            Url::parse(&format!("{}/{}/insights", self.graph_url, platform_user_id)).unwrap();
         url.query_pairs_mut()
             .append_pair("metric", "follower_demographics")
             .append_pair("period", "lifetime")
