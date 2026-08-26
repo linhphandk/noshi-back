@@ -9,6 +9,7 @@ use crate::profile::models::{
     UpdateManualPlatformRequest, UpdateProfileRequest,
 };
 use crate::social::models::{AuthorizeUrlResponse, ConnectSocialRequest, SocialConnectionResponse};
+use crate::waitlist::models::{JoinWaitlistRequest, WaitlistResponse};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -34,6 +35,7 @@ use crate::social::models::{AuthorizeUrlResponse, ConnectSocialRequest, SocialCo
         crate::social::controller::list_connections,
         crate::social::controller::disconnect,
         crate::social::controller::sync,
+        crate::waitlist::controller::join_waitlist,
     ),
     components(
         schemas(
@@ -53,6 +55,8 @@ use crate::social::models::{AuthorizeUrlResponse, ConnectSocialRequest, SocialCo
             AuthorizeUrlResponse,
             ConnectSocialRequest,
             SocialConnectionResponse,
+            JoinWaitlistRequest,
+            WaitlistResponse,
             crate::shared::errors::ErrorResponse,
         ),
     ),
@@ -60,6 +64,7 @@ use crate::social::models::{AuthorizeUrlResponse, ConnectSocialRequest, SocialCo
         (name = "auth", description = "Authentication endpoints"),
         (name = "profile", description = "User profile endpoints"),
         (name = "social", description = "Social platform connections"),
+        (name = "waitlist", description = "Waitlist signup"),
     ),
 )]
 pub struct ApiDoc;

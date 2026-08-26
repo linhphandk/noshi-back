@@ -4,10 +4,10 @@ use std::time::Duration as StdDuration;
 use tokio::process::Command;
 use tokio::time::sleep;
 
-use noshi_back::social::instagram::InstagramProvider;
-use noshi_back::social::ports::SocialProvider;
 use noshi_back::shared::crypto;
 use noshi_back::shared::errors::AppError;
+use noshi_back::social::instagram::InstagramProvider;
+use noshi_back::social::ports::SocialProvider;
 
 const SIMULATOR_BASE_URL: &str = "http://127.0.0.1:4444";
 const TEST_USER_ID: &str = "17841405822304914";
