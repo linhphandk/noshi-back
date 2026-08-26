@@ -9,6 +9,7 @@ use crate::profile::repository::{DieselManualPlatformRepository, DieselProfileRe
 use crate::profile::service::ProfileService;
 use crate::shared::crypto;
 use crate::shared::db::DbPool;
+use crate::shared::email_client::EmailClient;
 use crate::shared::errors::{AppError, AppResult};
 use crate::shared::types::AuthenticatedUser;
 use crate::social::instagram::InstagramProvider;
@@ -51,6 +52,20 @@ impl AppState {
     ) -> AppResult<Self> {
         let waitlist_repo = DieselWaitlistRepository::new(pool.clone());
         let waitlist_service = WaitlistService::new(waitlist_repo);
+
+        let email_client = config
+            .email_function_url
+            .clone()
+            .map(|url| {
+                tracing::info!("Email function client configured");
+                Arc::new(EmailClient::new(url))
+            })
+            .or_else(|| {
+                tracing::warn!("EMAIL_FUNCTION_URL not set, waitlist confirmation emails disabled");
+                None
+            });
+
+        let waitlist_service = waitlist_service.with_email_client(email_client);
 
         let auth_provider = LocalAuthProvider::new(jwt_secret.clone(), jwt_expiry_minutes);
         let user_repo = DieselUserRepository::new(pool.clone());

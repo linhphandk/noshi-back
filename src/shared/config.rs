@@ -24,6 +24,7 @@ pub struct Config {
     pub instagram_redirect_uri: Option<String>,
     pub token_encryption_key: Option<String>,
     pub social_oauth_state_secret: Option<String>,
+    pub email_function_url: Option<String>,
 }
 
 impl Config {

@@ -1,24 +1,20 @@
 use crate::shared::errors::AppResult;
 use crate::state::AppState;
-use crate::waitlist::models::WaitlistResponse;
+use crate::waitlist::models::{JoinWaitlistRequest, WaitlistResponse};
 use axum::extract::State;
 use axum::Json;
-use serde::Deserialize;
 use tracing::instrument;
 
-#[derive(Deserialize)]
-pub struct JoinWaitlistRequest {
-    pub email: String,
-}
-
-impl std::fmt::Debug for JoinWaitlistRequest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("JoinWaitlistRequest")
-            .field("email", &self.email)
-            .finish()
-    }
-}
-
+#[utoipa::path(
+    post,
+    path = "/api/waitlist",
+    request_body = JoinWaitlistRequest,
+    responses(
+        (status = 200, description = "Joined waitlist", body = WaitlistResponse),
+        (status = 409, description = "Email already on waitlist"),
+    ),
+    tag = "waitlist"
+)]
 #[instrument(skip(state, req))]
 pub async fn join_waitlist(
     State(state): State<AppState>,
