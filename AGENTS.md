@@ -14,8 +14,8 @@ Rust backend for the "noshi" project. Early/scaffold state.
 - Rust 2021; Docker builder base `rust:1.91`.
 - Axum 0.8 (`multipart`), Tokio full; `tower-http` for cors/trace.
 - Diesel 2 + `diesel_migrations` (postgres / r2d2 / uuid / chrono).
-- S3 via `aws-sdk-s3` (dev = MinIO); image processing via `image` crate (jpeg/png/webp only).
-- `lettre` SMTP, `governor` rate limiting, `bcrypt` + `jsonwebtoken` auth, `utoipa` + `utoipa-scalar` OpenAPI.
+- S3 via `aws-sdk-s3` (dev = Floci on `:4566`); image processing via `image` crate (jpeg/png/webp only).
+- Email via `aws-sdk-sesv2` (dev = Floci SES on `:4566`). Replaces previous `lettre` SMTP setup.
 - Config: `dotenvy` loads `.env`; `envy` binds env -> typed config struct.
 
 ## Architecture (Ports & Adapters / Hexagonal, Domain-Scoped)
@@ -34,7 +34,7 @@ Reference implementation: `/Users/pc/krafted/krafted-back` (same stack/`Cargo.to
 
 ## Local dev
 1. `cp .env.example .env` (`.env` is gitignored).
-2. `docker compose up -d` starts: Postgres:16 (`noshi/noshi`, DB `noshi`, port 5432), Adminer `:8080`, MinIO API `:9000` / console `:9001` (`minioadmin`/`minioadmin`), `createbuckets` service makes `noshi-images` bucket public, maildev SMTP `:1025` / web `:1080`.
+2. `docker compose up -d` starts: Postgres:16 (`noshi/noshi`, DB `noshi`, port 5432), Adminer `:8080`, Floci AWS emulator `:4566` (S3, SES, 75 services; creds `test`/`test`; needs Docker socket).
 3. `diesel setup` (one-time; needs `DATABASE_URL` from `.env`, Postgres must be up).
 4. `cargo run` (placeholder until server is wired).
 
@@ -44,7 +44,7 @@ Reference implementation: `/Users/pc/krafted/krafted-back` (same stack/`Cargo.to
 - `diesel print-schema` regenerates `src/schema.rs`. Do NOT hand-edit `src/schema.rs`.
 
 ## Tests
-- Integration tests use `testcontainers` + `testcontainers-modules` (postgres, minio) -> ephemeral services; do not require the running compose stack. `mockall` for mocks, `tower` for service-layer tests, `tokio-test`.
+- Integration tests use `testcontainers` + `testcontainers-modules` (postgres) -> ephemeral services; do not require the running compose stack. `mockall` for mocks, `tower` for service-layer tests, `tokio-test`.
 - Two test layers (mirror krafted-back `tests/`): **service** tests mock the port trait via `mockall` (`mock!{ .. impl Trait for MockX { .. } }`, `#[tokio::test]`); **repository** tests spin a real Postgres via `testcontainers::clients::Cli` + `Postgres::default()`, call `run_migrations`, exercise the Diesel adapter.
 - Run all: `cargo test`. Single: `cargo test <name>`.
 - `cargo test` links against `libpq` (Diesel postgres). On macOS: `brew install postgresql@16`, ensure `pg_config` is on PATH or set `LIBRARY_PATH=/opt/homebrew/opt/postgresql@16/lib`.
@@ -58,12 +58,12 @@ No CI gate runs cargo fmt/clippy/test (CI only builds Docker), so run locally:
 
 ## CI / release
 - `.github/workflows/docker-publish.yml`: on push to `main` (or `workflow_dispatch`) builds and pushes image to `ghcr.io/linhphandk/noshi-back` (tags `latest` + short sha). PRs are NOT built.
-- Prod deploy: `./deploy.sh` runs `docker compose -f docker-compose.prod.yml up -d`. Required prod env secrets: `JWT_SECRET`, `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT`.
+- Prod deploy: `./deploy.sh` runs `docker compose -f docker-compose.prod.yml up -d`. Required prod env secrets: `JWT_SECRET`, `AWS_S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `SES_FROM_EMAIL`, `SES_FROM_NAME`.
 
 ## Env var gotchas
-- `.env.example` uses `AWS_*` names (`AWS_S3_BUCKET`, `AWS_REGION`, `AWS_ENDPOINT`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) plus `S3_PUBLIC_URL`, `SMTP_*`, `FRONTEND_URL`.
-- `docker-compose.prod.yml` passes `S3_BUCKET` / `S3_REGION` / `S3_ENDPOINT` (no `AWS_` prefix) and omits AWS creds, SMTP, `S3_PUBLIC_URL`, `FRONTEND_URL`. When implementing the `envy` config struct, confirm the exact field names against both files to keep dev and prod aligned.
-- Reference `krafted-back` `shared/config.rs` uses fields `s3_bucket`/`s3_region`/`s3_endpoint`/`s3_public_url` (no `AWS_` prefix); `envy::from_env()` maps env names to field names case-insensitively, so `AWS_S3_BUCKET` will NOT populate `s3_bucket`. Its own `.env.example` shares this mismatch — fix the names here when wiring `Config`.
+- `.env.example` uses `AWS_*` names (`AWS_S3_BUCKET`, `AWS_REGION`, `AWS_ENDPOINT`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) plus `S3_PUBLIC_URL`, `SES_FROM_EMAIL`, `SES_FROM_NAME`, `FRONTEND_URL`.
+- `docker-compose.prod.yml` passes `AWS_S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_PUBLIC_URL`, `SES_FROM_EMAIL`, `SES_FROM_NAME` (all aligned with config field names via `envy::from_env()` case-insensitive mapping).
+- Config fields: `aws_s3_bucket`, `aws_region`, `aws_endpoint`, `s3_public_url`, `ses_from_email`, `ses_from_name`. Env var names map case-insensitively to field names (e.g. `AWS_S3_BUCKET` → `aws_s3_bucket`). Previous mismatch between `.env.example` (`AWS_*` prefix) and config fields (`s3_*` no prefix) is now fixed.
 
 ## Lessons Learned
 

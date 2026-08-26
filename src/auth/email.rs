@@ -1,9 +1,7 @@
 use async_trait::async_trait;
-use lettre::message::header::ContentType;
-use lettre::transport::smtp::authentication::Credentials;
-use lettre::transport::smtp::client::Tls;
-use lettre::{Message, SmtpTransport, Transport};
-use tracing::{info, instrument, warn};
+use aws_sdk_sesv2::types::{Body, Content, Destination, EmailContent, Message};
+use aws_sdk_sesv2::Client as SesClient;
+use tracing::{error, info, instrument};
 
 use crate::shared::errors::{AppError, AppResult};
 
@@ -13,69 +11,77 @@ pub trait EmailProvider: Send + Sync {
 }
 
 #[derive(Clone)]
-pub struct SmtpEmailProvider {
-    mailer: SmtpTransport,
-    from: String,
+pub struct SesEmailProvider {
+    client: SesClient,
+    from_email: String,
     from_name: String,
 }
 
-impl SmtpEmailProvider {
-    pub fn new(
-        host: &str,
-        port: u16,
-        user: &str,
-        password: &str,
-        from_email: &str,
-        from_name: &str,
-    ) -> Self {
-        let mailer = if user.is_empty() && password.is_empty() {
-            SmtpTransport::builder_dangerous(host)
-                .port(port)
-                .tls(Tls::None)
-                .build()
-        } else {
-            SmtpTransport::relay(host)
-                .unwrap()
-                .port(port)
-                .credentials(Credentials::new(user.to_string(), password.to_string()))
-                .build()
-        };
-
+impl SesEmailProvider {
+    pub fn new(client: SesClient, from_email: &str, from_name: &str) -> Self {
         Self {
-            mailer,
-            from: from_email.to_string(),
+            client,
+            from_email: from_email.to_string(),
             from_name: from_name.to_string(),
+        }
+    }
+
+    async fn send(&self, to: &str, subject: &str, body_text: &str) -> AppResult<()> {
+        let from = format!("{} <{}>", self.from_name, self.from_email);
+
+        let dest = Destination::builder().to_addresses(to).build();
+
+        let subject_content = Content::builder().data(subject).build().map_err(|e| {
+            error!(error = %e, "SES subject build failed");
+            AppError::Internal
+        })?;
+
+        let body_content = Content::builder().data(body_text).build().map_err(|e| {
+            error!(error = %e, "SES body build failed");
+            AppError::Internal
+        })?;
+
+        let msg = Message::builder()
+            .subject(subject_content)
+            .body(Body::builder().text(body_content).build())
+            .build();
+
+        let content = EmailContent::builder().simple(msg).build();
+
+        let result = self
+            .client
+            .send_email()
+            .from_email_address(from)
+            .destination(dest)
+            .content(content)
+            .send()
+            .await;
+
+        match result {
+            Ok(_) => {
+                info!(to = %to, "email sent via SES");
+                Ok(())
+            }
+            Err(e) => {
+                error!(to = %to, error = %e, "SES send failed");
+                Err(AppError::Internal)
+            }
         }
     }
 }
 
 #[async_trait]
-impl EmailProvider for SmtpEmailProvider {
+impl EmailProvider for SesEmailProvider {
     #[instrument(skip(self), fields(to = %to))]
     async fn send_password_reset(&self, to: &str, reset_url: &str) -> AppResult<()> {
-        let email = Message::builder()
-            .from(format!("{} <{}>", self.from_name, self.from).parse().unwrap())
-            .to(to.parse().unwrap())
-            .subject("Reset your password")
-            .header(ContentType::TEXT_PLAIN)
-            .body(format!(
+        self.send(
+            to,
+            "Reset your password",
+            &format!(
                 "Click the link below to reset your password:\n\n{}\n\nThis link expires in 1 hour.",
                 reset_url
-            ))
-            .map_err(|e| {
-                warn!("Failed to build email: {:?}", e);
-                AppError::Internal
-            })?;
-
-        match self.mailer.send(&email) {
-            Ok(_) => {
-                info!("Password reset email sent to {}", to);
-                Ok(())
-            }
-            Err(e) => {
-                warn!("Failed to send email to {}: {:?}", to, e);
-                Err(AppError::Internal)
-            }
-        }
+            ),
+        )
+        .await
     }
 }

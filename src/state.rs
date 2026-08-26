@@ -1,4 +1,4 @@
-use crate::auth::email::SmtpEmailProvider;
+use crate::auth::email::SesEmailProvider;
 use crate::auth::ports::AuthProvider;
 use crate::auth::provider::LocalAuthProvider;
 use crate::auth::repository::{
@@ -18,13 +18,14 @@ use crate::social::service::SocialService;
 use crate::waitlist::repository::DieselWaitlistRepository;
 use crate::waitlist::service::WaitlistService;
 use std::sync::Arc;
+use tracing::debug;
 
 pub type ConcreteAuthService = AuthService<
     LocalAuthProvider,
     DieselUserRepository,
     DieselSessionRepository,
     DieselPasswordResetRepository,
-    SmtpEmailProvider,
+    SesEmailProvider,
 >;
 
 pub type ConcreteProfileService =
@@ -42,7 +43,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(
+    pub async fn new(
         pool: DbPool,
         jwt_secret: String,
         jwt_expiry_minutes: u64,
@@ -57,26 +58,21 @@ impl AppState {
         let session_repo = DieselSessionRepository::new(pool.clone());
         let password_reset_repo = DieselPasswordResetRepository::new(pool.clone());
 
-        let smtp_host = std::env::var("SMTP_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-        let smtp_port: u16 = std::env::var("SMTP_PORT")
-            .unwrap_or_else(|_| "1025".to_string())
-            .parse()
-            .unwrap_or(1025);
-        let smtp_user = std::env::var("SMTP_USER").unwrap_or_default();
-        let smtp_password = std::env::var("SMTP_PASSWORD").unwrap_or_default();
-        let smtp_from_email =
-            std::env::var("SMTP_FROM_EMAIL").unwrap_or_else(|_| "noreply@noshi.com".to_string());
-        let smtp_from_name =
-            std::env::var("SMTP_FROM_NAME").unwrap_or_else(|_| "Noshi".to_string());
+        let mut aws_loader = aws_config::defaults(aws_config::BehaviorVersion::latest());
+        if let Some(endpoint) = &config.aws_endpoint {
+            debug!("Using AWS endpoint override: {}", endpoint);
+            aws_loader = aws_loader.endpoint_url(endpoint);
+        }
+        let sdk_config = aws_loader.load().await;
+        let ses_client = aws_sdk_sesv2::Client::new(&sdk_config);
 
-        let email_provider = SmtpEmailProvider::new(
-            &smtp_host,
-            smtp_port,
-            &smtp_user,
-            &smtp_password,
-            &smtp_from_email,
-            &smtp_from_name,
-        );
+        let ses_from_email = config
+            .ses_from_email
+            .as_deref()
+            .unwrap_or("noreply@noshi.com");
+        let ses_from_name = config.ses_from_name.as_deref().unwrap_or("Noshi");
+
+        let email_provider = SesEmailProvider::new(ses_client, ses_from_email, ses_from_name);
 
         let auth_service = AuthService::new(
             auth_provider,
