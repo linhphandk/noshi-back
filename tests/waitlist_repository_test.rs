@@ -67,10 +67,7 @@ async fn test_duplicate_email_returns_error() {
         .await
         .unwrap();
 
-    let result = db
-        .repo
-        .create(NewWaitlistEntry { email })
-        .await;
+    let result = db.repo.create(NewWaitlistEntry { email }).await;
 
     assert!(result.is_err());
 }
