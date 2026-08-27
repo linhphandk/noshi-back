@@ -1,4 +1,4 @@
-use crate::auth::email::SmtpEmailProvider;
+use crate::auth::email::SesEmailProvider;
 use crate::auth::ports::AuthProvider;
 use crate::auth::provider::LocalAuthProvider;
 use crate::auth::repository::{
@@ -19,12 +19,14 @@ use crate::waitlist::repository::DieselWaitlistRepository;
 use crate::waitlist::service::WaitlistService;
 use std::sync::Arc;
 
+pub type ConcreteEmailProvider = SesEmailProvider;
+
 pub type ConcreteAuthService = AuthService<
     LocalAuthProvider,
     DieselUserRepository,
     DieselSessionRepository,
     DieselPasswordResetRepository,
-    SmtpEmailProvider,
+    ConcreteEmailProvider,
 >;
 
 pub type ConcreteProfileService =
@@ -32,9 +34,11 @@ pub type ConcreteProfileService =
 
 pub type ConcreteSocialService = SocialService<DieselSocialConnectionRepository>;
 
+pub type ConcreteWaitlistService = WaitlistService<DieselWaitlistRepository, ConcreteEmailProvider>;
+
 #[derive(Clone)]
 pub struct AppState {
-    pub waitlist_service: WaitlistService<DieselWaitlistRepository>,
+    pub waitlist_service: ConcreteWaitlistService,
     pub auth_service: ConcreteAuthService,
     pub profile_service: ConcreteProfileService,
     pub social_service: ConcreteSocialService,
@@ -42,41 +46,40 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(
+    pub async fn new(
         pool: DbPool,
         jwt_secret: String,
         jwt_expiry_minutes: u64,
         frontend_url: String,
         config: &crate::shared::config::Config,
     ) -> AppResult<Self> {
+        let aws_config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .load()
+            .await;
+        let ses_client = aws_sdk_sesv2::Client::new(&aws_config);
+
+        let from_email = config
+            .ses_from_email
+            .clone()
+            .unwrap_or_else(|| "noreply@noshi.com".to_string());
+        let from_name = config
+            .ses_from_name
+            .clone()
+            .unwrap_or_else(|| "Noshi".to_string());
+
+        let email_provider = SesEmailProvider::new(ses_client, &from_email, &from_name);
+        let email_provider_arc = Arc::new(email_provider.clone());
+
+        let notification_email = std::env::var("NOTIFICATION_EMAIL").unwrap_or_default();
+
         let waitlist_repo = DieselWaitlistRepository::new(pool.clone());
-        let waitlist_service = WaitlistService::new(waitlist_repo);
+        let waitlist_service =
+            WaitlistService::new(waitlist_repo, email_provider_arc, notification_email);
 
         let auth_provider = LocalAuthProvider::new(jwt_secret.clone(), jwt_expiry_minutes);
         let user_repo = DieselUserRepository::new(pool.clone());
         let session_repo = DieselSessionRepository::new(pool.clone());
         let password_reset_repo = DieselPasswordResetRepository::new(pool.clone());
-
-        let smtp_host = std::env::var("SMTP_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
-        let smtp_port: u16 = std::env::var("SMTP_PORT")
-            .unwrap_or_else(|_| "1025".to_string())
-            .parse()
-            .unwrap_or(1025);
-        let smtp_user = std::env::var("SMTP_USER").unwrap_or_default();
-        let smtp_password = std::env::var("SMTP_PASSWORD").unwrap_or_default();
-        let smtp_from_email =
-            std::env::var("SMTP_FROM_EMAIL").unwrap_or_else(|_| "noreply@noshi.com".to_string());
-        let smtp_from_name =
-            std::env::var("SMTP_FROM_NAME").unwrap_or_else(|_| "Noshi".to_string());
-
-        let email_provider = SmtpEmailProvider::new(
-            &smtp_host,
-            smtp_port,
-            &smtp_user,
-            &smtp_password,
-            &smtp_from_email,
-            &smtp_from_name,
-        );
 
         let auth_service = AuthService::new(
             auth_provider,

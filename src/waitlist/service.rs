@@ -1,16 +1,24 @@
+use crate::auth::email::EmailProvider;
 use crate::shared::errors::{AppError, AppResult};
 use crate::waitlist::models::{NewWaitlistEntry, WaitlistResponse};
 use crate::waitlist::ports::WaitlistRepository;
-use tracing::{debug, instrument};
+use std::sync::Arc;
+use tracing::{debug, error, info, instrument};
 
 #[derive(Clone)]
-pub struct WaitlistService<R: WaitlistRepository> {
+pub struct WaitlistService<R: WaitlistRepository, E: EmailProvider> {
     repo: R,
+    email: Arc<E>,
+    notification_email: String,
 }
 
-impl<R: WaitlistRepository> WaitlistService<R> {
-    pub fn new(repo: R) -> Self {
-        Self { repo }
+impl<R: WaitlistRepository, E: EmailProvider> WaitlistService<R, E> {
+    pub fn new(repo: R, email: Arc<E>, notification_email: String) -> Self {
+        Self {
+            repo,
+            email,
+            notification_email,
+        }
     }
 
     #[instrument(skip(self), fields(email = %email))]
@@ -26,8 +34,26 @@ impl<R: WaitlistRepository> WaitlistService<R> {
         }
 
         debug!("inserting waitlist entry");
-        self.repo.create(NewWaitlistEntry { email }).await?;
+        self.repo
+            .create(NewWaitlistEntry {
+                email: email.clone(),
+            })
+            .await?;
 
+        debug!("sending notification email");
+        if let Err(e) = self
+            .email
+            .send_notification(
+                &self.notification_email,
+                "New waitlist signup",
+                &format!("Someone just joined the waitlist: {}", email),
+            )
+            .await
+        {
+            error!(error = ?e, "failed to send waitlist notification email");
+        }
+
+        info!(email = %email, "waitlist join complete");
         Ok(WaitlistResponse {
             message: "You're on the waitlist".to_string(),
         })

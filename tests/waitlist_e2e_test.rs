@@ -20,7 +20,7 @@ struct TestApp {
     router: axum::Router,
 }
 
-fn setup() -> TestApp {
+async fn setup() -> TestApp {
     let _ = tracing_subscriber::fmt()
         .with_env_filter("debug")
         .try_init();
@@ -37,16 +37,12 @@ fn setup() -> TestApp {
         database_pool_size: 4,
         jwt_secret: "test-secret".to_string(),
         jwt_expiry_minutes: 15,
-        s3_bucket: None,
-        s3_region: None,
-        s3_endpoint: None,
+        aws_s3_bucket: None,
+        aws_region: None,
+        aws_endpoint: None,
         s3_public_url: None,
-        smtp_host: None,
-        smtp_port: None,
-        smtp_user: None,
-        smtp_password: None,
-        smtp_from_email: None,
-        smtp_from_name: None,
+        ses_from_email: None,
+        ses_from_name: None,
         frontend_url: Some("http://localhost:5173".to_string()),
         instagram_client_id: None,
         instagram_client_secret: None,
@@ -62,6 +58,7 @@ fn setup() -> TestApp {
         "http://localhost:5173".to_string(),
         &config,
     )
+    .await
     .unwrap();
 
     TestApp {
@@ -93,7 +90,7 @@ async fn post_waitlist(app: &TestApp, body: &str) -> (StatusCode, String) {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_success() {
-    let app = setup();
+    let app = setup().await;
     let email = format!("e2e-{}@test.com", uuid::Uuid::now_v7());
 
     let (status, body) = post_waitlist(&app, &format!(r#"{{"email":"{}"}}"#, email)).await;
@@ -104,7 +101,7 @@ async fn test_e2e_waitlist_success() {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_duplicate() {
-    let app = setup();
+    let app = setup().await;
     let email = format!("dup-{}@test.com", uuid::Uuid::now_v7());
 
     let (status, _) = post_waitlist(&app, &format!(r#"{{"email":"{}"}}"#, email)).await;
@@ -118,7 +115,7 @@ async fn test_e2e_waitlist_duplicate() {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_invalid_email() {
-    let app = setup();
+    let app = setup().await;
 
     let (status, body) = post_waitlist(&app, r#"{"email":"no-at-sign"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -128,7 +125,7 @@ async fn test_e2e_waitlist_invalid_email() {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_empty_email() {
-    let app = setup();
+    let app = setup().await;
 
     let (status, _) = post_waitlist(&app, r#"{"email":""}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);

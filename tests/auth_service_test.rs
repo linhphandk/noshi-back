@@ -88,6 +88,7 @@ mock! {
     #[async_trait::async_trait]
     impl EmailProvider for TestEmailProvider {
         async fn send_password_reset(&self, to: &str, reset_url: &str) -> AppResult<()>;
+        async fn send_notification(&self, to: &str, subject: &str, body: &str) -> AppResult<()>;
     }
 }
 
