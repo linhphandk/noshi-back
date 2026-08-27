@@ -37,6 +37,7 @@ async fn main() {
         frontend_url,
         &config,
     )
+    .await
     .expect("Failed to initialize AppState");
     let app = create_router(state);
 

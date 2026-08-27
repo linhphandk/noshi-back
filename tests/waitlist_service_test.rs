@@ -1,8 +1,10 @@
 use mockall::mock;
+use noshi_back::auth::email::EmailProvider;
 use noshi_back::shared::errors::{AppError, AppResult};
 use noshi_back::waitlist::models::{NewWaitlistEntry, WaitlistEntry};
 use noshi_back::waitlist::ports::WaitlistRepository;
 use noshi_back::waitlist::service::WaitlistService;
+use std::sync::Arc;
 use uuid::Uuid;
 
 mock! {
@@ -15,6 +17,16 @@ mock! {
     }
 }
 
+mock! {
+    pub TestEmailProvider {}
+
+    #[async_trait::async_trait]
+    impl EmailProvider for TestEmailProvider {
+        async fn send_password_reset(&self, to: &str, reset_url: &str) -> AppResult<()>;
+        async fn send_notification(&self, to: &str, subject: &str, body: &str) -> AppResult<()>;
+    }
+}
+
 fn make_entry(email: &str) -> WaitlistEntry {
     WaitlistEntry {
         id: Uuid::now_v7(),
@@ -23,13 +35,21 @@ fn make_entry(email: &str) -> WaitlistEntry {
     }
 }
 
+fn make_service(
+    repo: MockTestWaitlistRepository,
+) -> WaitlistService<MockTestWaitlistRepository, MockTestEmailProvider> {
+    let mut email = MockTestEmailProvider::default();
+    email.expect_send_notification().returning(|_, _, _| Ok(()));
+    WaitlistService::new(repo, Arc::new(email), "admin@test.com".to_string())
+}
+
 #[tokio::test]
 async fn test_join_success() {
     let mut repo = MockTestWaitlistRepository::default();
     repo.expect_find_by_email().returning(|_| Ok(None));
     repo.expect_create().returning(|e| Ok(make_entry(&e.email)));
 
-    let service = WaitlistService::new(repo);
+    let service = make_service(repo);
     let result = service.join("user@test.com".to_string()).await;
 
     assert!(result.is_ok());
@@ -42,7 +62,7 @@ async fn test_join_duplicate_returns_conflict() {
     repo.expect_find_by_email()
         .returning(|_| Ok(Some(make_entry("dup@test.com"))));
 
-    let service = WaitlistService::new(repo);
+    let service = make_service(repo);
     let result = service.join("dup@test.com".to_string()).await;
 
     assert!(matches!(result, Err(AppError::Conflict(_))));
@@ -51,7 +71,7 @@ async fn test_join_duplicate_returns_conflict() {
 #[tokio::test]
 async fn test_join_empty_email_returns_bad_request() {
     let repo = MockTestWaitlistRepository::default();
-    let service = WaitlistService::new(repo);
+    let service = make_service(repo);
     let result = service.join("".to_string()).await;
 
     assert!(matches!(result, Err(AppError::BadRequest(_))));
@@ -60,7 +80,7 @@ async fn test_join_empty_email_returns_bad_request() {
 #[tokio::test]
 async fn test_join_no_at_symbol_returns_bad_request() {
     let repo = MockTestWaitlistRepository::default();
-    let service = WaitlistService::new(repo);
+    let service = make_service(repo);
     let result = service.join("notanemail".to_string()).await;
 
     assert!(matches!(result, Err(AppError::BadRequest(_))));
@@ -72,7 +92,7 @@ async fn test_join_repo_error_propagates() {
     repo.expect_find_by_email()
         .returning(|_| Err(AppError::Internal));
 
-    let service = WaitlistService::new(repo);
+    let service = make_service(repo);
     let result = service.join("user@test.com".to_string()).await;
 
     assert!(matches!(result, Err(AppError::Internal)));

@@ -20,7 +20,7 @@ struct TestApp {
     router: axum::Router,
 }
 
-fn setup() -> TestApp {
+async fn setup() -> TestApp {
     let _ = tracing_subscriber::fmt()
         .with_env_filter("debug")
         .try_init();
@@ -62,6 +62,7 @@ fn setup() -> TestApp {
         "http://localhost:5173".to_string(),
         &config,
     )
+    .await
     .unwrap();
 
     TestApp {
@@ -93,7 +94,7 @@ async fn post_waitlist(app: &TestApp, body: &str) -> (StatusCode, String) {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_success() {
-    let app = setup();
+    let app = setup().await;
     let email = format!("e2e-{}@test.com", uuid::Uuid::now_v7());
 
     let (status, body) = post_waitlist(&app, &format!(r#"{{"email":"{}"}}"#, email)).await;
@@ -104,7 +105,7 @@ async fn test_e2e_waitlist_success() {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_duplicate() {
-    let app = setup();
+    let app = setup().await;
     let email = format!("dup-{}@test.com", uuid::Uuid::now_v7());
 
     let (status, _) = post_waitlist(&app, &format!(r#"{{"email":"{}"}}"#, email)).await;
@@ -118,7 +119,7 @@ async fn test_e2e_waitlist_duplicate() {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_invalid_email() {
-    let app = setup();
+    let app = setup().await;
 
     let (status, body) = post_waitlist(&app, r#"{"email":"no-at-sign"}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
@@ -128,7 +129,7 @@ async fn test_e2e_waitlist_invalid_email() {
 #[tokio::test]
 #[serial]
 async fn test_e2e_waitlist_empty_email() {
-    let app = setup();
+    let app = setup().await;
 
     let (status, _) = post_waitlist(&app, r#"{"email":""}"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
