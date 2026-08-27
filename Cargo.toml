@@ -40,6 +40,6 @@ url = "2.5"
 [dev-dependencies]
 tokio-test = "0.4"
 testcontainers = "0.15"
-testcontainers-modules = { version = "0.3", features = ["postgres", "minio"] }
+testcontainers-modules = { version = "0.3", features = ["postgres"] }
 tower = "0.5"
 serial_test = "3.1"

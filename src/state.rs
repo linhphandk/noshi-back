@@ -59,11 +59,11 @@ impl AppState {
         let ses_client = aws_sdk_sesv2::Client::new(&aws_config);
 
         let from_email = config
-            .smtp_from_email
+            .ses_from_email
             .clone()
             .unwrap_or_else(|| "noreply@noshi.com".to_string());
         let from_name = config
-            .smtp_from_name
+            .ses_from_name
             .clone()
             .unwrap_or_else(|| "Noshi".to_string());
 
