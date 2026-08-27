@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use diesel::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 #[derive(Queryable, Selectable, Serialize, Clone, Debug)]
@@ -25,7 +26,20 @@ impl std::fmt::Debug for NewWaitlistEntry {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, ToSchema)]
+pub struct JoinWaitlistRequest {
+    pub email: String,
+}
+
+impl std::fmt::Debug for JoinWaitlistRequest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JoinWaitlistRequest")
+            .field("email", &self.email)
+            .finish()
+    }
+}
+
+#[derive(Serialize, ToSchema)]
 pub struct WaitlistResponse {
     pub message: String,
 }
