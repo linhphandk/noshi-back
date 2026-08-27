@@ -39,9 +39,12 @@ async fn main() {
     )
     .expect("Failed to initialize AppState");
     let app = create_router(state);
-
+    let origins = [
+        "https://nezia.app".parse().unwrap(),
+        "http://portal.nezia.app".parse().unwrap(),
+    ];
     let cors = CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(origins)
         .allow_methods([
             Method::GET,
             Method::POST,
